@@ -1,3 +1,5 @@
+//the members bundle is primarily used to define what surveyors are included on a survey. they can be added or removed, a list of members is managed in the surveyBundle for the specific members on a survey. This is the grand list of all registered users on the site.
+//@TODO add ability to fetch registered users from the api to load the initial state. add the ability to register a new user on their first login.
 const membersBundle = {
     name: 'members',
     getReducer: () => {

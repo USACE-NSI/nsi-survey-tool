@@ -1,3 +1,4 @@
+//the active surveys bundle manages a list of active surveys. it allows to add a survey to the state list. it is used in the completed surveys bundle to remove an active survey that is being updated as completed.
 const activeSurveysBundle = {
     name: 'activeSurveys',
     getReducer: () => {
@@ -12,6 +13,8 @@ const activeSurveysBundle = {
         return state;
       };
     },
+    //this only adds to the state store. it probably makes sense that the changes consolidated here should be propigated to the database through the api.
+    //@TODO add api call to add a survey to the active surveys list.
     doAddSurvey: (surveyData) => ({ dispatch, store }) => {
       const activeSurveys = store.selectActiveSurveys();
       const currentList = activeSurveys?.list || [];

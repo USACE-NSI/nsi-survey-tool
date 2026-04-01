@@ -1,3 +1,4 @@
+//the dashboard bundle manages the state of the dashboard view, it allows uers to switch between the panel view of creating a new survey, managing a survey viewing a table of active surveys or viewing completed surveys.
 const dashboardBundle = {
     name: 'dashboard',
     getReducer: () => {

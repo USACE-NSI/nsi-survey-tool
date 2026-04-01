@@ -1,4 +1,6 @@
-
+///A survey element is a single structure and is a row in the survey table. This currently functions off of a default survey or a survey being updated by the user by clicking on the map. Ideally there will be a previous and next for advancing the survey element
+//@TODO add an api call to advance the survey to the next element and a call to back up to the previous one.
+//@TODO add an api call to submit a finished survey element to database. if on a previous element upsert will be required.
 import VectorLayer from 'ol/layer/Vector';
 import { transform } from 'ol/proj'
 import VectorSource from 'ol/source/Vector';
@@ -57,6 +59,7 @@ const surveyElementBundle = {
         return state;
       }
     },
+    //determines if a survey element is valid for committing. if a user sets "invalidStructure" no other fields are necessary. 
     doSurveyElementInvalid: () => ({ store, dispatch }) => {
       const currentSurvey = store.selectSurveyElement()
 

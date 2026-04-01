@@ -1,3 +1,6 @@
+//the surveyBundle manages state for a given survey.  The selectSurvey is one of the most used selectors in this program. doUpdateSurvey is probably the next most used. 
+//@TODO make api call to create new surveys? make api call to post a survey or edits to a survey.
+//a function to generate a guid. this could be a database behavior in the future. i needed it for identification of unique surveys in lists so i had to do something in the interum.
 function generateGuid() {
   var d = new Date().getTime(); // Timestamp
   var d2 =
@@ -80,6 +83,8 @@ const surveyBundle = {
           payload: initialState
         });
     },
+    //this is called all over the place, it is updating the state - should not be used for posting to database via the api. we should make a separate action to post.
+    //@TODO add an action to post the survey to the database.
     doUpdateSurvey: (state) => ({dispatch})=>{
         console.log("dispatching " + state)
         dispatch({

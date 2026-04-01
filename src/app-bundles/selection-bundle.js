@@ -1,4 +1,4 @@
-// bundles/selection-bundle.js
+// the selection bundle is used to define a selected structure in the map. Currently it works off of the fd_id of the structure.
 const selectionBundle = {
     name: 'selection',
     getReducer: () => {

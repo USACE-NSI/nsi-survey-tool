@@ -1,3 +1,5 @@
+//This bundle manages the view state for the survey-results-analysis page and associated charting components 
+//@TODO work with nick to identify all charting options and components and add them into the state. probably manage state better through an enum since there are likely many charting options.
 const surveyResultsBundle = {
     name: 'surveyResults',
     getReducer: () => {

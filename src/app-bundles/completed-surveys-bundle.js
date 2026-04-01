@@ -1,3 +1,5 @@
+//the completed surveys bundle manages a list of completed surveys and provides the ability to add a survey that is marked as completed and also to remove a survey that is reopened in both cases the active survey list is also updated
+//@TODO add ability to pull the initial state from the api.
 const completedSurveysBundle = {
     name: 'completedSurveys',
     getReducer: () => {

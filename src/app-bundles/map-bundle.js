@@ -1,3 +1,4 @@
+//the map bundle manages map state. currently the state is isolated to xy center zoom level and the map reference.
 const mapBundle = {
     name: 'map',
   
