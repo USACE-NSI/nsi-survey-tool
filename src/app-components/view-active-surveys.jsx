@@ -1,6 +1,7 @@
 import { Button } from "@usace/groundwork";
 import { useConnect } from "redux-bundler-hook";
 import SettingsIcon from "@mui/icons-material/Settings";
+import BarChartIcon from "@mui/icons-material/BarChart";
 import MapIcon from "@mui/icons-material/Map";
 import {
   Table,
@@ -47,6 +48,7 @@ export default function ViewActiveSurveys() {
             <TableHeader>Percent Complete</TableHeader>
             <TableHeader></TableHeader>
             <TableHeader></TableHeader>
+            <TableHeader></TableHeader>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -75,6 +77,16 @@ export default function ViewActiveSurveys() {
                     onClick={() => doUpdateUrl("/survey")}
                   >
                     View Survey <MapIcon />
+                  </Button>
+                </div>
+              </TableCell>
+              <TableCell>
+                <div>
+                  <Button
+                    className="gw-flex-1 bg-secondary border-r border-white/20 px-4 py-2 first:rounded-l-md last:rounded-r-md st-btn-tb2"
+                    onClick={() => doUpdateUrl("/results")}
+                  >
+                    View Survey Statistics <BarChartIcon />
                   </Button>
                 </div>
               </TableCell>
