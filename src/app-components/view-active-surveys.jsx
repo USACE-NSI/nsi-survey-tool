@@ -1,17 +1,18 @@
-import { Button } from "@usace/groundwork";
-import { useConnect } from "redux-bundler-hook";
-import SettingsIcon from "@mui/icons-material/Settings";
-import BarChartIcon from "@mui/icons-material/BarChart";
-import MapIcon from "@mui/icons-material/Map";
 import {
+  Button,
   Table,
   TableBody,
   TableRow,
   TableHead,
   TableHeader,
   TableCell,
-  Code,
 } from "@usace/groundwork";
+import { useConnect } from "redux-bundler-hook";
+import SettingsIcon from "@mui/icons-material/Settings";
+import BarChartIcon from "@mui/icons-material/BarChart";
+import MapIcon from "@mui/icons-material/Map";
+import Tooltip from "@mui/material/Tooltip"; // Optional but recommended
+
 export default function ViewActiveSurveys() {
   const {
     activeSurveys,
@@ -26,8 +27,8 @@ export default function ViewActiveSurveys() {
     "doUpdateDashboardView",
     "doUpdateSurvey"
   );
+
   const openManage = (survey) => {
-    console.log("opening manage surveys");
     doUpdateDashboardView({
       viewCreateNew: false,
       viewManage: true,
@@ -35,76 +36,120 @@ export default function ViewActiveSurveys() {
       viewCompleted: false,
     });
     doUpdateSurvey(survey);
-    //doUpdateUrl('/create-new-survey')
   };
+
   return (
-    <div>
-      <Table striped dense overflow stickyHeader>
-        <TableHead>
-          <TableRow>
-            <TableHeader>Survey Name</TableHeader>
-            <TableHeader>Due Date</TableHeader>
-            <TableHeader>Owner</TableHeader>
-            <TableHeader>Percent Complete</TableHeader>
-            <TableHeader></TableHeader>
-            <TableHeader></TableHeader>
-            <TableHeader></TableHeader>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {activeSurveys.list.map((item) => (
-            <TableRow key={item.id}>
-              <TableCell>
-                <Code>{item.name}</Code>
-              </TableCell>
-              <TableCell>
-                <Code>{item.dueDate}</Code>
-              </TableCell>
-              <TableCell>
-                <Code>{item.owner}</Code>
-              </TableCell>
-              <TableCell>
-                <Code>
-                  {(item.percentComplete / 1).toLocaleString(undefined, {
-                    style: "percent",
-                  })}
-                </Code>
-              </TableCell>
-              <TableCell>
-                <div>
-                  <Button
-                    className="gw-flex-1 bg-secondary border-r border-white/20 px-4 py-2 first:rounded-l-md last:rounded-r-md st-btn-tb2"
-                    onClick={() => doUpdateUrl("/survey")}
-                  >
-                    View Survey <MapIcon />
-                  </Button>
-                </div>
-              </TableCell>
-              <TableCell>
-                <div>
-                  <Button
-                    className="gw-flex-1 bg-secondary border-r border-white/20 px-4 py-2 first:rounded-l-md last:rounded-r-md st-btn-tb2"
-                    onClick={() => doUpdateUrl("/results")}
-                  >
-                    View Survey Statistics <BarChartIcon />
-                  </Button>
-                </div>
-              </TableCell>
-              <TableCell>
-                <div>
-                  <Button
-                    disabled={user.name !== item.owner}
-                    className="gw-flex-1 bg-secondary border-r border-white/20 px-4 py-2 first:rounded-l-md last:rounded-r-md st-btn-tb2"
-                    onClick={() => openManage(item)}
-                  >
-                    Manage Survey <SettingsIcon />
-                  </Button>
-                </div>
-              </TableCell>
+    <div className="gw-p-6">
+      <div className="gw-mb-4">
+        <h2 className="gw-text-xl gw-font-bold gw-text-slate-800">
+          Active Surveys
+        </h2>
+        <p className="gw-text-sm gw-text-slate-500">
+          Monitor progress and manage ongoing survey efforts.
+        </p>
+      </div>
+
+      <div className="gw-bg-white gw-rounded-lg gw-shadow-sm gw-border gw-border-slate-200 gw-overflow-hidden">
+        <Table dense overflow stickyHeader className="gw-w-full">
+          <TableHead className="gw-bg-slate-50">
+            <TableRow>
+              <TableHeader className="gw-py-4 gw-px-4 gw-text-xs gw-font-bold gw-uppercase gw-text-slate-600">
+                Survey Details
+              </TableHeader>
+              <TableHeader className="gw-text-xs gw-font-bold gw-uppercase gw-text-slate-600">
+                Due Date
+              </TableHeader>
+              <TableHeader className="gw-text-xs gw-font-bold gw-uppercase gw-text-slate-600">
+                Progress
+              </TableHeader>
+              <TableHeader className="gw-text-right gw-pr-8 gw-text-xs gw-font-bold gw-uppercase gw-text-slate-600">
+                Actions
+              </TableHeader>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHead>
+          <TableBody>
+            {activeSurveys.list.map((item) => (
+              <TableRow
+                key={item.id}
+                className="hover:gw-bg-slate-50/50 gw-transition-colors"
+              >
+                {/* 1. Survey Name & Owner */}
+                <TableCell className="gw-py-4 gw-px-4">
+                  <div className="gw-flex gw-flex-col">
+                    <span className="gw-font-bold gw-text-slate-800">
+                      {item.name}
+                    </span>
+                    <span className="gw-text-xs gw-text-slate-500">
+                      Owner: {item.owner}
+                    </span>
+                  </div>
+                </TableCell>
+
+                {/* 2. Due Date with Status Badge logic */}
+                <TableCell>
+                  <span className="gw-text-sm gw-font-medium gw-text-slate-600">
+                    {item.dueDate}
+                  </span>
+                </TableCell>
+
+                {/* 3. Visual Progress Bar */}
+                <TableCell className="gw-w-64">
+                  <div className="gw-flex gw-items-center gw-gap-3">
+                    <div className="gw-flex-1 gw-h-2 gw-bg-slate-100 gw-rounded-full gw-overflow-hidden">
+                      <div
+                        className="gw-h-full gw-bg-blue-600 gw-rounded-full"
+                        style={{ width: `${item.percentComplete * 100}%` }}
+                      />
+                    </div>
+                    <span className="gw-text-xs gw-font-bold gw-text-slate-700">
+                      {item.percentComplete.toLocaleString(undefined, {
+                        style: "percent",
+                      })}
+                    </span>
+                  </div>
+                </TableCell>
+
+                {/* 4. Grouped Actions */}
+                <TableCell className="gw-text-right gw-pr-4">
+                  <div className="gw-flex gw-justify-end gw-gap-1">
+                    <Tooltip title="View Map">
+                      <Button
+                        className="gw-p-2 gw-bg-gray-600 hover:gw-bg-gray-600 gw-text-white gw-rounded-md"
+                        onClick={() => doUpdateUrl("/survey")}
+                      >
+                        <MapIcon fontSize="small" />
+                      </Button>
+                    </Tooltip>
+
+                    <Tooltip title="View Statistics">
+                      <Button
+                        className="gw-p-2 gw-bg-gray-600 hover:gw-bg-gray-600 gw-text-white gw-rounded-md"
+                        onClick={() => doUpdateUrl("/results")}
+                      >
+                        <BarChartIcon fontSize="small" />
+                      </Button>
+                    </Tooltip>
+
+                    <Tooltip title="Manage Settings">
+                      <Button
+                        disabled={user.name !== item.owner}
+                        className={`gw-p-2 gw-rounded-md ${
+                          user.name === item.owner
+                            ? "gw-bg-gray-600 hover:gw-bg-gray-600 gw-text-white"
+                            : "gw-bg-gray-600 gw-text-red"
+                        }`}
+                        onClick={() => openManage(item)}
+                      >
+                        <SettingsIcon fontSize="small" />
+                      </Button>
+                    </Tooltip>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }

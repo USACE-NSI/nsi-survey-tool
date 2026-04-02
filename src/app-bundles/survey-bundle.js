@@ -1,5 +1,7 @@
 //the surveyBundle manages state for a given survey.  The selectSurvey is one of the most used selectors in this program. doUpdateSurvey is probably the next most used. 
 //@TODO make api call to create new surveys? make api call to post a survey or edits to a survey.
+//@TODO add an api call to get results
+//@TODO add an api call to post surveyElements from csv.
 //a function to generate a guid. this could be a database behavior in the future. i needed it for identification of unique surveys in lists so i had to do something in the interum.
 function generateGuid() {
   var d = new Date().getTime(); // Timestamp
@@ -44,9 +46,9 @@ const surveyBundle = {
          proportion: 0.50,
          sampleSize: 0,
          percentControlStructures: 0.01,
-         elements: [],//for loading and validating...
+         elements: [],//for loading and validating... i do not think this list of elements should be in memory for long ideally we would validate and post to the database. @TODO address this.
          percentComplete:0.50,
-         results:[]//for display in charts...
+         results:[]//for display in charts... i do not think this will be preserved in memory so clearing this when the user leaves results viewing would be good. or supporting the specific calls for results via the api would be nice @TODO address this.
         };
       return (state = initialState, { type, payload }) => {
         switch(type){

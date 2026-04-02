@@ -214,31 +214,34 @@ function SurveyTray() {
   };
   return (
     <div>
-      <Button
-        title="Get Previous Survey Element"
-        className="btn btn-secondary basic-toolbar-btn st-btn-tb1"
-        onClick={doSurveyNext}
-        style={{ padding: "2px" }}
-      >
-        <i>PREVIOUS</i>
-      </Button>
-      <Button
-        title="Get Next Survey Element"
-        className="btn btn-secondary basic-toolbar-btn st-btn-tb1"
-        onClick={doSurveyNext}
-        style={{ padding: "2px" }}
-      >
-        <i>NEXT</i>
-      </Button>
-      <Button
-        title="Submit Survey Element"
-        disabled={surveyElement.survey_element_invalid}
-        className="btn btn-secondary basic-toolbar-btn st-btn-tb1"
-        onClick={doSurveyNext}
-        style={{ padding: "2px" }}
-      >
-        <i>SUBMIT</i>
-      </Button>
+      <div style={{ padding: "5px", gap: "5px", display: "flex" }}>
+        <Button
+          title="Get Previous Survey Element"
+          className="btn btn-secondary basic-toolbar-btn st-btn-tb1"
+          onClick={doSurveyNext}
+          style={{ padding: "2px" }}
+        >
+          <i>PREVIOUS</i>
+        </Button>
+        <Button
+          title="Get Next Survey Element"
+          className="btn btn-secondary basic-toolbar-btn st-btn-tb1"
+          onClick={doSurveyNext}
+          style={{ padding: "2px" }}
+        >
+          <i>NEXT</i>
+        </Button>
+        <Button
+          title="Submit Survey Element"
+          disabled={surveyElement.survey_element_invalid}
+          className="btn btn-secondary basic-toolbar-btn st-btn-tb1"
+          onClick={doSurveyNext}
+          style={{ padding: "2px" }}
+        >
+          <i>SUBMIT</i>
+        </Button>
+      </div>
+
       <div
         style={{
           width: "100%",

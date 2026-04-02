@@ -8,6 +8,7 @@ const surveyResultsBundle = {
          viewPie: false,
          viewBar: false,
          userNameFilter: "All Surveyors",
+         fieldFilter: { field: "All Fields", fieldType: "mixed", display: "All Fields" }
         };
       return (state = initialState, { type, payload }) => {
         switch(type){
