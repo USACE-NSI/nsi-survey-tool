@@ -6,6 +6,7 @@ import {
   TableHead,
   TableHeader,
   TableCell,
+  ProgressBar,
 } from "@usace/groundwork";
 import { useConnect } from "redux-bundler-hook";
 import SettingsIcon from "@mui/icons-material/Settings";
@@ -95,13 +96,13 @@ export default function ViewActiveSurveys() {
                 {/* 3. Visual Progress Bar */}
                 <TableCell className="gw-w-64">
                   <div className="gw-flex gw-items-center gw-gap-3">
-                    <div className="gw-flex-1 gw-h-2 gw-bg-slate-100 gw-rounded-full gw-overflow-hidden">
-                      <div
-                        className="gw-h-full gw-bg-blue-600 gw-rounded-full"
-                        style={{ width: `${item.percentComplete * 100}%` }}
+                    <div className="gw-flex-1">
+                      <ProgressBar
+                        progress={(item.percentComplete || 0) * 100}
+                        showProgress={true}
                       />
                     </div>
-                    <span className="gw-text-xs gw-font-bold gw-text-slate-700">
+                    <span className="gw-text-xs gw-font-bold gw-text-slate-600">
                       {item.percentComplete.toLocaleString(undefined, {
                         style: "percent",
                       })}
@@ -111,7 +112,7 @@ export default function ViewActiveSurveys() {
 
                 {/* 4. Grouped Actions */}
                 <TableCell className="gw-text-right gw-pr-4">
-                  <div className="gw-flex gw-justify-end gw-gap-1">
+                  <div className="gw-flex gw-justify-left gw-gap-1">
                     <Tooltip title="View Map">
                       <Button
                         className="gw-p-2 gw-bg-gray-600 hover:gw-bg-gray-600 gw-text-white gw-rounded-md"

@@ -102,10 +102,10 @@ export default function ViewCompletedSurveys() {
 
                 {/* 4. Grouped Actions */}
                 <TableCell className="gw-text-right gw-pr-4">
-                  <div className="gw-flex gw-justify-end gw-gap-2">
+                  <div className="gw-flex gw-justify-left gw-gap-2">
                     <Tooltip title="View Detailed Statistics">
                       <Button
-                        className="gw-p-2 gw-bg-gray-600 hover:gw-bg-slate-100 gw-text-slate-600 gw-rounded-md"
+                        className="gw-p-2 gw-bg-gray-600 hover:gw-bg-gray-600/80 gw-text-white gw-rounded-md"
                         onClick={() => doUpdateUrl("/results")}
                       >
                         <BarChartIcon fontSize="small" />
@@ -117,7 +117,7 @@ export default function ViewCompletedSurveys() {
                         disabled={user.name !== item.owner}
                         className={`gw-p-2 gw-rounded-md ${
                           user.name === item.owner
-                            ? "gw-bg-gray-600 hover:gw-bg-gray-600 gw-text-white"
+                            ? "gw-bg-gray-600 hover:gw-bg-gray-600/80 gw-text-white"
                             : "gw-bg-gray-600 gw-text-red"
                         }`}
                         onClick={() => openManage(item)}
