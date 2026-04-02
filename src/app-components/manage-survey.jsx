@@ -138,6 +138,7 @@ export default function ManageSurvey() {
   );
 
   const handleUpdateSurvey = () => {
+    if (isInvalid) return;
     doUpdateSurvey(survey);
     doUpdateDashboardView({
       viewCreateNew: false,
@@ -157,7 +158,7 @@ export default function ManageSurvey() {
     const s = { ...survey, [field]: e.target.checked };
     doUpdateSurvey(s);
   };
-
+  const isInvalid = !survey.owners || survey.owners.length === 0;
   return (
     <div className="gw-p-10 gw-max-w-4xl gw-mx-auto">
       {/* Header */}
@@ -198,7 +199,13 @@ export default function ManageSurvey() {
               Owner
             </label>
             <span className="gw-text-slate-700 gw-font-semibold">
-              {survey.owner}
+              {survey.owners?.length > 0 ? (
+                <>{survey.owners.join(", ")}</>
+              ) : (
+                <span className="gw-italic gw-text-slate-400">
+                  None Assigned
+                </span>
+              )}
             </span>
           </div>
           <div className="gw-flex gw-flex-col">
@@ -247,7 +254,13 @@ export default function ManageSurvey() {
             {/* Action Buttons */}
             <div className="gw-flex gw-gap-3 gw-w-full md:gw-w-auto">
               <Button
-                className="gw-bg-gray-600 hover:gw-bg-gray-600 gw-text-white gw-px-6 gw-rounded-md"
+                disabled={isInvalid}
+                className={`gw-px-6 gw-rounded-md
+                ${
+                  !isInvalid
+                    ? "gw-bg-gray-600 hover:gw-bg-gray-600 gw-text-white"
+                    : "gw-bg-red-600 gw-text-white"
+                }`}
                 onClick={handleUpdateSurvey}
               >
                 Save Changes

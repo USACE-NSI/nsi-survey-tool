@@ -171,7 +171,22 @@ export default function CreateNewSurvey() {
 
   useEffect(() => {
     doUpdateSurveyGUID();
-    doUpdateSurvey({ owner: user.name });
+    // 1. Add current user as both a member and an owner by default
+    const initialMembers = survey.members || [];
+    const initialOwners = survey.owners || [];
+
+    const newMembers = initialMembers.includes(user.name)
+      ? initialMembers
+      : [...initialMembers, user.name];
+
+    const newOwners = initialOwners.includes(user.name)
+      ? initialOwners
+      : [...initialOwners, user.name];
+
+    doUpdateSurvey({
+      members: newMembers,
+      owners: newOwners,
+    });
   }, []);
 
   const handleCreateSurvey = () => {
@@ -198,10 +213,11 @@ export default function CreateNewSurvey() {
   const isInvalid =
     !survey.name ||
     !survey.description ||
-    !survey.owner ||
     !survey.dueDate ||
     !survey.members ||
-    survey.members.length === 0;
+    survey.members.length === 0 ||
+    !survey.owners ||
+    survey.owners.length === 0;
 
   return (
     <div className="gw-p-10 gw-max-w-4xl gw-mx-auto">

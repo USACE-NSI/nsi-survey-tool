@@ -81,7 +81,10 @@ export default function ViewActiveSurveys() {
                       {item.name}
                     </span>
                     <span className="gw-text-xs gw-text-slate-500">
-                      Owner: {item.owner}
+                      Owners:{" "}
+                      {item.owners?.length > 0
+                        ? item.owners.join(", ")
+                        : "No owners assigned"}
                     </span>
                   </div>
                 </TableCell>
@@ -133,11 +136,11 @@ export default function ViewActiveSurveys() {
 
                     <Tooltip title="Manage Settings">
                       <Button
-                        disabled={user.name !== item.owner}
+                        disabled={!item.owners?.includes(user.name)}
                         className={`gw-p-2 gw-rounded-md ${
-                          user.name === item.owner
+                          item.owners?.includes(user.name)
                             ? "gw-bg-gray-600 hover:gw-bg-gray-600 gw-text-white"
-                            : "gw-bg-gray-600 gw-text-red"
+                            : "gw-bg-red-600 gw-text-white"
                         }`}
                         onClick={() => openManage(item)}
                       >
