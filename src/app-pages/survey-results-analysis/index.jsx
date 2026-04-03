@@ -11,7 +11,7 @@ import BarChartIcon from "@mui/icons-material/BarChart";
 import Tooltip from "@mui/material/Tooltip";
 import BoxPlotIcon from "@mui/icons-material/CandlestickChart";
 import ViewResultsBoxPlot from "../../app-components/view-results-boxplot";
-import ViewResultsCDF from "../../app-components/view-results-cdf";
+import ViewResultsDistribution from "../../app-components/view-results-distribution";
 import AreaChartIcon from "@mui/icons-material/AreaChart";
 
 export default function SurveyResultsAnalysis() {
@@ -354,7 +354,7 @@ export default function SurveyResultsAnalysis() {
           {surveyResults.viewPie && <ViewResultsPie />}
           {surveyResults.viewBar && <ViewResultsBar />}
           {surveyResults.viewBox && <ViewResultsBoxPlot />}
-          {surveyResults.viewCDF && <ViewResultsCDF />}
+          {surveyResults.viewCDF && <ViewResultsDistribution />}
         </div>
       </div>
     </div>
