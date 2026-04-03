@@ -94,7 +94,11 @@ export default function ViewResultsBoxPlot() {
         backgroundColor: "rgba(54, 162, 235, 0.5)",
         borderColor: "rgb(54, 162, 235)",
         borderWidth: 1,
-        outlierColor: "#999999",
+        outlierColor: "red",
+        outlierBackgroundColor: "red", // Fills the shape with red
+        outlierBorderColor: "red",
+        outlierRadius: 6,
+        outlierStyle: "crossRot",
         padding: 10,
         itemRadius: 2,
         data: [
@@ -104,6 +108,7 @@ export default function ViewResultsBoxPlot() {
             median: stats.median,
             q3: stats.q3,
             max: stats.max,
+            outliers: [stats.max],
           },
         ],
       },
