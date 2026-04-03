@@ -11,6 +11,8 @@ import BarChartIcon from "@mui/icons-material/BarChart";
 import Tooltip from "@mui/material/Tooltip";
 import BoxPlotIcon from "@mui/icons-material/CandlestickChart";
 import ViewResultsBoxPlot from "../../app-components/view-results-boxplot";
+import ViewResultsCDF from "../../app-components/view-results-cdf";
+import AreaChartIcon from "@mui/icons-material/AreaChart";
 
 export default function SurveyResultsAnalysis() {
   const [trayWidth, setTrayWidth] = useState(350);
@@ -82,6 +84,7 @@ export default function SurveyResultsAnalysis() {
       viewPie: type === "pie",
       viewBar: type === "bar",
       viewBox: type === "box",
+      viewCDF: type == "cdf",
       viewState: type,
     });
   };
@@ -215,6 +218,18 @@ export default function SurveyResultsAnalysis() {
                   <PieChartIcon fontSize="small" />
                 </button>
               </Tooltip>
+              <Tooltip title="View CDF">
+                <button
+                  onClick={() => updateViewState("cdf")}
+                  className={`gw-flex-1 gw-py-2 gw-flex gw-justify-center ${
+                    surveyResults.viewBox
+                      ? "gw-bg-gray-600 gw-text-white"
+                      : "gw-bg-white gw-text-gray-600 hover:gw-bg-slate-50"
+                  }`}
+                >
+                  <AreaChartIcon fontSize="small" />
+                </button>
+              </Tooltip>
               <Tooltip title="View Bar Chart">
                 <button
                   onClick={() => updateViewState("bar")}
@@ -339,6 +354,7 @@ export default function SurveyResultsAnalysis() {
           {surveyResults.viewPie && <ViewResultsPie />}
           {surveyResults.viewBar && <ViewResultsBar />}
           {surveyResults.viewBox && <ViewResultsBoxPlot />}
+          {surveyResults.viewCDF && <ViewResultsCDF />}
         </div>
       </div>
     </div>
