@@ -170,7 +170,7 @@ export default function SurveyResultsAnalysis() {
         style={{ width: `${trayWidth}px` }}
         className="gw-relative gw-flex-none gw-bg-white gw-border-r gw-border-slate-200 gw-shadow-sm gw-z-20"
       >
-        <div className="gw-p-6 gw-space-y-8">
+        <div className="gw-p-8 gw-space-y-8">
           <div>
             <h2 className="gw-text-lg gw-font-bold gw-text-slate-800 gw-mb-1">
               Analysis Tools
