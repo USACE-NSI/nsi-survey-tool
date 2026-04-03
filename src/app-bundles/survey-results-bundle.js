@@ -7,6 +7,7 @@ const surveyResultsBundle = {
          viewTable: true,
          viewPie: false,
          viewBar: false,
+         viewBox: false,
          userNameFilter: "All Surveyors",
          fieldFilter: { field: "All Fields", fieldType: "mixed", display: "All Fields" }
         };

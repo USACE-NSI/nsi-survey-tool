@@ -18,6 +18,7 @@
     "@mui/icons-material": "^7.3.9",
     "@mui/material": "^7.3.9",
     "@reduxjs/toolkit": "^2.11.2",
+    "@sgratzl/chartjs-chart-boxplot": "^4.4.5",
     "@tailwindcss/vite": "^4.2.1",
     "@usace/groundwork": "^3.15.6",
     "@usace/groundwork-geo": "^2.0.4",

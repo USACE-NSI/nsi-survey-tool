@@ -5,11 +5,12 @@ import ViewResultsBar from "../../app-components/view-results-bar";
 import ViewResultsPie from "../../app-components/view-results-pie";
 import ViewResultsTable from "../../app-components/view-results-table";
 import HelpLink from "../../app-components/help-link";
-import { Button } from "@usace/groundwork";
 import TableChartIcon from "@mui/icons-material/TableChart";
 import PieChartIcon from "@mui/icons-material/PieChart";
 import BarChartIcon from "@mui/icons-material/BarChart";
 import Tooltip from "@mui/material/Tooltip";
+import BoxPlotIcon from "@mui/icons-material/CandlestickChart";
+import ViewResultsBoxPlot from "../../app-components/view-results-boxplot";
 
 export default function SurveyResultsAnalysis() {
   const [trayWidth, setTrayWidth] = useState(350);
@@ -80,7 +81,8 @@ export default function SurveyResultsAnalysis() {
       viewTable: type === "table",
       viewPie: type === "pie",
       viewBar: type === "bar",
-      viewState: type, // tracking string for the active button state
+      viewBox: type === "box",
+      viewState: type,
     });
   };
   const toBool = (val) => {
@@ -225,6 +227,18 @@ export default function SurveyResultsAnalysis() {
                   <BarChartIcon fontSize="small" />
                 </button>
               </Tooltip>
+              <Tooltip title="View Box Plot">
+                <button
+                  onClick={() => updateViewState("box")}
+                  className={`gw-flex-1 gw-py-2 gw-flex gw-justify-center ${
+                    surveyResults.viewBox
+                      ? "gw-bg-gray-600 gw-text-white"
+                      : "gw-bg-white gw-text-gray-600 hover:gw-bg-slate-50"
+                  }`}
+                >
+                  <BoxPlotIcon fontSize="small" />
+                </button>
+              </Tooltip>
             </div>
           </div>
 
@@ -324,6 +338,7 @@ export default function SurveyResultsAnalysis() {
           {surveyResults.viewTable && <ViewResultsTable />}
           {surveyResults.viewPie && <ViewResultsPie />}
           {surveyResults.viewBar && <ViewResultsBar />}
+          {surveyResults.viewBox && <ViewResultsBoxPlot />}
         </div>
       </div>
     </div>
