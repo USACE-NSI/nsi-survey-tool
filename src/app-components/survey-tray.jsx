@@ -159,19 +159,25 @@ const roofStyles = [
 function SurveyTray() {
   const {
     surveyElement,
+    nsiPrefetching,
     doSurveyStreetView,
     doSurveySetZoom,
     doSurveyModifyXY,
-    doSurveyNext,
+    doSurveyFetchNext,
+    doSurveyFetchPrevious,
+    doSurveySubmit,
     doSurveyUpdateData,
     doSurveyElementInvalid,
     doSurveyDrawSqft,
   } = useConnect(
     "selectSurveyElement",
+    "selectNsiPrefetching",
     "doSurveyStreetView",
     "doSurveySetZoom",
     "doSurveyModifyXY",
-    "doSurveyNext",
+    "doSurveyFetchNext",
+    "doSurveyFetchPrevious",
+    "doSurveySubmit",
     "doSurveyUpdateData",
     "doSurveyElementInvalid",
     "doSurveyDrawSqft"
@@ -216,26 +222,55 @@ function SurveyTray() {
     <div>
       <div style={{ padding: "5px", gap: "5px", display: "flex" }}>
         <Button
-          title="Get Previous Survey Element"
+          title={
+            nsiPrefetching
+              ? "Loading NSI structures…"
+              : surveyElement.fetchingAssignment
+              ? "Loading…"
+              : !surveyElement.saId
+              ? "Click NEXT to load an assignment first"
+              : surveyElement.atFirst
+              ? "Already at the first assignment"
+              : "Get Previous Survey Element"
+          }
+          disabled={
+            nsiPrefetching ||
+            surveyElement.fetchingAssignment ||
+            !surveyElement.saId ||
+            surveyElement.atFirst
+          }
           className="btn btn-secondary basic-toolbar-btn st-btn-tb1"
-          onClick={doSurveyNext}
+          onClick={doSurveyFetchPrevious}
           style={{ padding: "2px" }}
         >
           <i>PREVIOUS</i>
         </Button>
         <Button
-          title="Get Next Survey Element"
+          title={
+            nsiPrefetching
+              ? "Loading NSI structures…"
+              : surveyElement.fetchingAssignment
+              ? "Loading…"
+              : surveyElement.awaitingSubmit
+              ? "Submit this element or go to the previous one before loading the next"
+              : "Get Next Survey Element"
+          }
+          disabled={
+            nsiPrefetching ||
+            surveyElement.fetchingAssignment ||
+            surveyElement.awaitingSubmit
+          }
           className="btn btn-secondary basic-toolbar-btn st-btn-tb1"
-          onClick={doSurveyNext}
+          onClick={doSurveyFetchNext}
           style={{ padding: "2px" }}
         >
-          <i>NEXT</i>
+          <i>{nsiPrefetching || surveyElement.fetchingAssignment ? "LOADING…" : "NEXT"}</i>
         </Button>
         <Button
           title="Submit Survey Element"
           disabled={surveyElement.survey_element_invalid}
           className="btn btn-secondary basic-toolbar-btn st-btn-tb1"
-          onClick={doSurveyNext}
+          onClick={doSurveySubmit}
           style={{ padding: "2px" }}
         >
           <i>SUBMIT</i>

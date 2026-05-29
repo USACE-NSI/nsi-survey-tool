@@ -5,7 +5,7 @@ import Tooltip from "@mui/material/Tooltip";
 export default function ViewResultsTable() {
   const { survey, surveyResults } = useConnect(
     "selectSurvey",
-    "selectSurveyResults"
+    "selectSurveyResults",
   );
 
   const { results = [] } = survey;
@@ -13,17 +13,14 @@ export default function ViewResultsTable() {
 
   // Define all fields from your handleFileUpload mapping
   const columnMapping = [
-    { key: "srId", label: "SR ID" },
-    { key: "userId", label: "User ID" },
     { key: "userName", label: "User Name" },
-    { key: "completed", label: "Comp." },
-    { key: "isControl", label: "Ctrl" },
-    { key: "saId", label: "SA ID" },
+    { key: "completed", label: "Completed" },
+    { key: "isControl", label: "Control" },
     { key: "fdId", label: "FD ID" },
     { key: "x", label: "X" },
     { key: "y", label: "Y" },
     { key: "invalidStructure", label: "Invalid" },
-    { key: "noStreetView", label: "No SV" },
+    { key: "noStreetView", label: "No Street View" },
     { key: "cbfips", label: "CBFIPS" },
     { key: "occtype", label: "Occ Type" },
     { key: "stDamcat", label: "Dam Cat" },
@@ -31,7 +28,7 @@ export default function ViewResultsTable() {
     { key: "numStory", label: "Stories" },
     { key: "sqft", label: "SqFt" },
     { key: "foundType", label: "Found Type" },
-    { key: "rsmeansType", label: "RSMeans" },
+    { key: "reconstructionType", label: "Reconstruction Type" },
     { key: "quality", label: "Quality" },
     { key: "constType", label: "Const Type" },
     { key: "garage", label: "Garage" },
@@ -44,9 +41,7 @@ export default function ViewResultsTable() {
   const visibleColumns =
     activeKey === "All Fields"
       ? columnMapping // Show everything
-      : columnMapping.filter(
-          (col) => col.key === "srId" || col.key === activeKey
-        ); // Show just SR ID + Active
+      : columnMapping.filter((col) => col.key === activeKey); // Show just the active field
 
   // 1. Filter results based on the sidebar selection
   const filteredResults =
@@ -81,7 +76,7 @@ export default function ViewResultsTable() {
           const escaped = ("" + val).replace(/"/g, '""');
           return `"${escaped}"`;
         })
-        .join(",")
+        .join(","),
     );
 
     // 3. Combine and Copy

@@ -17,17 +17,23 @@ import Tooltip from "@mui/material/Tooltip"; // Optional but recommended
 export default function ViewActiveSurveys() {
   const {
     activeSurveys,
-    user,
+    authUsername,
+    authRolesCaseInsensitiveObj,
     doUpdateUrl,
     doUpdateDashboardView,
-    doUpdateSurvey,
+    doSelectSurvey,
+    doFetchSurveyElements,
   } = useConnect(
     "selectActiveSurveys",
-    "selectUser",
+    "selectAuthUsername",
+    "selectAuthRolesCaseInsensitiveObj",
     "doUpdateUrl",
     "doUpdateDashboardView",
-    "doUpdateSurvey"
+    "doSelectSurvey",
+    "doFetchSurveyElements",
   );
+
+  const isAdmin = !!authRolesCaseInsensitiveObj?.ADMIN;
 
   const openManage = (survey) => {
     doUpdateDashboardView({
@@ -36,7 +42,18 @@ export default function ViewActiveSurveys() {
       viewActive: false,
       viewCompleted: false,
     });
-    doUpdateSurvey(survey);
+    doSelectSurvey(survey);
+    doFetchSurveyElements(survey.id);
+  };
+
+  const openMap = (survey) => {
+    doSelectSurvey(survey);
+    doUpdateUrl("/survey");
+  };
+
+  const openResults = (survey) => {
+    doSelectSurvey(survey);
+    doUpdateUrl("/results");
   };
 
   return (
@@ -99,14 +116,20 @@ export default function ViewActiveSurveys() {
                 {/* 3. Visual Progress Bar */}
                 <TableCell className="gw-w-64">
                   <div className="gw-flex gw-items-center gw-gap-3">
-                    <div className="gw-flex-1">
-                      <ProgressBar
-                        progress={(item.percentComplete || 0) * 100}
-                        showProgress={true}
-                      />
-                    </div>
+                    <Tooltip
+                      title={`${item.completedCount ?? 0} of ${
+                        item.totalCount ?? 0
+                      } completed`}
+                    >
+                      <div className="gw-flex-1">
+                        <ProgressBar
+                          progress={(item.percentComplete || 0) * 100}
+                          showProgress={true}
+                        />
+                      </div>
+                    </Tooltip>
                     <span className="gw-text-xs gw-font-bold gw-text-slate-600">
-                      {item.percentComplete.toLocaleString(undefined, {
+                      {(item.percentComplete || 0).toLocaleString(undefined, {
                         style: "percent",
                       })}
                     </span>
@@ -116,10 +139,10 @@ export default function ViewActiveSurveys() {
                 {/* 4. Grouped Actions */}
                 <TableCell className="gw-text-right gw-pr-4">
                   <div className="gw-flex gw-justify-left gw-gap-1">
-                    <Tooltip title="View Map">
+                    <Tooltip title="View Survey">
                       <Button
                         className="gw-p-2 gw-bg-gray-600 hover:gw-bg-gray-600 gw-text-white gw-rounded-md"
-                        onClick={() => doUpdateUrl("/survey")}
+                        onClick={() => openMap(item)}
                       >
                         <MapIcon fontSize="small" />
                       </Button>
@@ -127,8 +150,15 @@ export default function ViewActiveSurveys() {
 
                     <Tooltip title="View Statistics">
                       <Button
-                        className="gw-p-2 gw-bg-gray-600 hover:gw-bg-gray-600 gw-text-white gw-rounded-md"
-                        onClick={() => doUpdateUrl("/results")}
+                        disabled={
+                          !(item.owners?.includes(authUsername) || isAdmin)
+                        }
+                        className={`gw-p-2 gw-rounded-md ${
+                          item.owners?.includes(authUsername) || isAdmin
+                            ? "gw-bg-gray-600 hover:gw-bg-gray-600 gw-text-white"
+                            : "gw-bg-red-600 gw-text-white"
+                        }`}
+                        onClick={() => openResults(item)}
                       >
                         <BarChartIcon fontSize="small" />
                       </Button>
@@ -136,9 +166,9 @@ export default function ViewActiveSurveys() {
 
                     <Tooltip title="Manage Settings">
                       <Button
-                        disabled={!item.owners?.includes(user.name)}
+                        disabled={!item.owners?.includes(authUsername)}
                         className={`gw-p-2 gw-rounded-md ${
-                          item.owners?.includes(user.name)
+                          item.owners?.includes(authUsername)
                             ? "gw-bg-gray-600 hover:gw-bg-gray-600 gw-text-white"
                             : "gw-bg-red-600 gw-text-white"
                         }`}

@@ -9,12 +9,22 @@ import {
   TableCell,
 } from "@usace/groundwork";
 import HelpLink from "./help-link";
+import UploadPolygon from "./upload-polygon";
 
 export default function GenerateStratifiedSurvey() {
   //const fwLinkHost = "https://www.hec.usace.army.mil/fwlink/?linkid=";
-  const { survey, doUpdateSurvey } = useConnect(
+  const {
+    survey,
+    doUpdateSurvey,
+    doGenerateNsiStratifiedSurvey,
+    nsiFetching,
+    nsiError,
+  } = useConnect(
     "selectSurvey",
-    "doUpdateSurvey"
+    "doUpdateSurvey",
+    "doGenerateNsiStratifiedSurvey",
+    "selectNsiFetching",
+    "selectNsiError",
   );
 
   // Options arrays remain the same...
@@ -38,19 +48,26 @@ export default function GenerateStratifiedSurvey() {
     { val: 0.25, display: "25%" },
     { val: 0.75, display: "75%" },
   ];
+  const percentControl = [
+    { val: 0.01, display: "1%" },
+    { val: 0.02, display: "2%" },
+    { val: 0.05, display: "5%" },
+    { val: 0.1, display: "10%" },
+  ];
 
   const handleChange = (field) => (e) => {
     doUpdateSurvey({ ...survey, [field]: e.target.value });
   };
 
+  // <select> emits string values even when option.value is numeric; the server
+  // binds these into float64 fields (StratificationInfo.{margin,proportion,confidence,pct_control})
+  // and rejects the request with a 400 if they arrive as strings.
+  const handleNumberChange = (field) => (e) => {
+    doUpdateSurvey({ ...survey, [field]: Number(e.target.value) });
+  };
+
   const handleChecked = (field) => (e) => {
     doUpdateSurvey({ ...survey, [field]: e.target.checked });
-  };
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      return; //implement logic here to store the polygon, to open it, to validate column names check file extension, and trigger an api call to generate the survey elements etc.
-    }
   };
   return (
     <div className="gw-space-y-6">
@@ -73,33 +90,7 @@ export default function GenerateStratifiedSurvey() {
           </select>
         </div>
 
-        {/* Upload Zone */}
-        <div className="gw-space-y-2">
-          <label className="gw-font-semibold gw-text-sm gw-text-slate-700">
-            Import Spatial Stratification by Polygon
-          </label>
-          <div className="gw-relative gw-group">
-            <div className="gw-border-2 gw-border-dashed gw-border-slate-300 gw-rounded-lg gw-p-8 gw-text-center hover:gw-border-blue-400 hover:gw-bg-blue-50 gw-transition-all">
-              <i className="mdi mdi-file-upload-outline gw-text-3xl gw-text-slate-400 gw-mb-2" />
-              <p className="gw-text-sm gw-text-slate-600">
-                Drag and drop your <b>.shpzip</b> here or{" "}
-                <span className="gw-text-blue-600 gw-font-semibold">
-                  browse files
-                </span>
-              </p>
-              <p className="gw-text-xs gw-text-slate-400 gw-mt-1">
-                Required columns: id, strata, for multiple strata include
-                multiple features in the polygon shape zip (win zip)
-              </p>
-              <input
-                type="file"
-                accept=".csv"
-                className="gw-absolute gw-inset-0 gw-opacity-0 gw-cursor-pointer"
-                onChange={handleFileUpload}
-              />
-            </div>
-          </div>
-        </div>
+        <UploadPolygon />
       </div>
 
       {/* 2. Stratification Settings */}
@@ -142,7 +133,7 @@ export default function GenerateStratifiedSurvey() {
           <select
             className="gw-border gw-border-slate-300 gw-rounded-md gw-p-2 gw-bg-white gw-text-sm"
             value={survey.confidence}
-            onChange={handleChange("confidence")}
+            onChange={handleNumberChange("confidence")}
           >
             {confidence.map((e) => (
               <option key={e.val} value={e.val}>
@@ -159,7 +150,7 @@ export default function GenerateStratifiedSurvey() {
           <select
             className="gw-border gw-border-slate-300 gw-rounded-md gw-p-2 gw-bg-white gw-text-sm"
             value={survey.margin}
-            onChange={handleChange("margin")}
+            onChange={handleNumberChange("margin")}
           >
             {margin.map((e) => (
               <option key={e.val} value={e.val}>
@@ -176,7 +167,7 @@ export default function GenerateStratifiedSurvey() {
           <select
             className="gw-border gw-border-slate-300 gw-rounded-md gw-p-2 gw-bg-white gw-text-sm"
             value={survey.proportion}
-            onChange={handleChange("proportion")}
+            onChange={handleNumberChange("proportion")}
           >
             {proportion.map((e) => (
               <option key={e.val} value={e.val}>
@@ -186,14 +177,50 @@ export default function GenerateStratifiedSurvey() {
           </select>
         </div>
 
-        <div className="gw-bg-blue-50 gw-border gw-border-blue-100 gw-rounded-md gw-p-2 gw-text-center">
-          <span className="gw-block gw-text-[10px] gw-font-bold gw-text-blue-600 gw-uppercase">
-            Sample Size
-          </span>
-          <span className="gw-text-xl gw-font-black gw-text-blue-900">
-            {survey.sampleSize || 0}
-          </span>
+        <div className="gw-flex gw-flex-col gw-gap-2">
+          <label className="gw-font-semibold gw-text-xs gw-text-slate-500 gw-uppercase">
+            % Control <HelpLink id="pct-control" />
+          </label>
+          <select
+            className="gw-border gw-border-slate-300 gw-rounded-md gw-p-2 gw-bg-white gw-text-sm"
+            value={survey.percentControlStructures}
+            onChange={handleNumberChange("percentControlStructures")}
+          >
+            {percentControl.map((e) => (
+              <option key={e.val} value={e.val}>
+                {e.display}
+              </option>
+            ))}
+          </select>
         </div>
+      </div>
+
+      {/* Sample size display */}
+      <div className="gw-bg-blue-50 gw-border gw-border-blue-100 gw-rounded-md gw-p-2 gw-text-center gw-w-fit">
+        <span className="gw-block gw-text-[10px] gw-font-bold gw-text-blue-600 gw-uppercase">
+          Sample Size
+        </span>
+        <span className="gw-text-xl gw-font-black gw-text-blue-900">
+          {survey.sampleSize || 0}
+        </span>
+      </div>
+
+      {/* Generate button — fetches NSI inside the perimeter and writes a stratified sample to survey.elements. */}
+      <div className="gw-flex gw-items-center gw-gap-3">
+        <Button
+          onClick={() => doGenerateNsiStratifiedSurvey()}
+          disabled={!survey.perimeterGeometry || nsiFetching}
+        >
+          {nsiFetching ? "Generating..." : "Generate Stratified Survey"}
+        </Button>
+        {!survey.perimeterGeometry && (
+          <span className="gw-text-xs gw-text-slate-500">
+            Upload a perimeter polygon to enable.
+          </span>
+        )}
+        {nsiError && (
+          <span className="gw-text-xs gw-text-red-600">{nsiError}</span>
+        )}
       </div>
 
       {/* 4. Preview Table (Consistent with LoadSurveyCSV) */}

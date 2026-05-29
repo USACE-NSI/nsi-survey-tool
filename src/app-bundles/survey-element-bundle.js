@@ -38,6 +38,16 @@ const defaultSurvey = {
   garage: "Three Car Built In",
   roof_style: "Gambrel Style",
   survey_element_invalid: true,
+  // Navigation state for tray gating. fetchingAssignment is true while a
+  // NEXT/PREVIOUS request is in flight (prevents double-clicks); atFirst is
+  // set when the server signals there is no earlier assignment to roll back
+  // to (server returns {"result":"first"} from /survey/:id/previous).
+  fetchingAssignment: false,
+  atFirst: false,
+  // True once NEXT has loaded an assignment, which keeps the NEXT button
+  // disabled so a second click can't discard the surveyor's unsaved entries.
+  // Cleared by SUBMIT (which advances on its own) and by PREVIOUS.
+  awaitingSubmit: false,
 }
 const surveyElementBundle = {
     name: 'surveyElement',
@@ -106,33 +116,47 @@ const surveyElementBundle = {
         payload: { surveyElement: updatedSurvey }
       });
     },
-    doAutofillFromNsi: (props) => ({ dispatch }) => {
-      console.log(props)
-      if(!props) return;
-      console.log(props)
-      const updatedSurvey = {
-        fdId: props.bid,
-        damcat: props.st_damcat || "UNK",
-        occupancyType: props.occtype || "RES1",
-        x: props.x,
-        y: props.y,
-        invalidStructure: false,
-        noStreetView: false,
-        found_ht: "",
-        stories: "",
-        sq_ft: "",
-        found_type: "",
-        replacement_type: "",
-        quality: "",
-        const_type: "",
-        garage: "",
-        roof_style: "",
-        survey_element_invalid: true
-      };
-  
-      dispatch({
-        type: "SURVEY_LOADED",
-        payload: { surveyElement: updatedSurvey }
+    // Takes a partial survey-element (must carry fd_id), fetches the matching
+    // NSI structure via the nsi bundle, and overlays only damcat, occupancy
+    // type, and x/y onto the surveyElement. All other fields (found_ht,
+    // stories, sq_ft, found_type, replacement_type, etc.) are intentionally
+    // left untouched so the surveyor enters them. After the overlay,
+    // centers the map on the structure at zoom 18 and marks the fd_id as the
+    // selected feature so the vector-tile layer's highlight style draws a
+    // marker around it.
+    doAutofillFromNsi: (surveyElement) => ({ dispatch, store }) => {
+      const fdId = surveyElement && surveyElement.fd_id;
+      if (fdId == null) return;
+      store.doFetchNsiStructure(fdId, {
+        onSuccess: (nsi) => {
+          // NSI may return either bare properties or a GeoJSON Feature.
+          const props = (nsi && nsi.properties) || nsi || {};
+          // Occtype is "<class>-<subtype>" (e.g. RES1-1SNB); the survey only cares about the class token.
+          const occtype = props.occtype
+            ? String(props.occtype).split("-")[0]
+            : "RES1";
+          dispatch({
+            type: "SURVEY_LOADED",
+            payload: {
+              surveyElement: {
+                damcat: props.st_damcat || "UNK",
+                occupancyType: occtype,
+                x: props.x,
+                y: props.y,
+                cbfips: props.cbfips,
+              },
+            },
+          });
+          // NSI x/y are lon/lat (EPSG:4326), which is what the map bundle stores.
+          if (Number.isFinite(props.x) && Number.isFinite(props.y)) {
+            store.doUpdateMapView({ center: [props.x, props.y], zoom: 18 });
+          }
+          // Highlight the structure on the vector-tile layer (feature.getId() === fdId triggers the cyan circle in map.jsx).
+          store.doSelectFeature(fdId);
+        },
+        onError: (err) => {
+          console.error(`Failed to autofill survey element from NSI for fd_id ${fdId}:`, err);
+        },
       });
     },
     doSurveyUpdateData: (surveyElement) => ({ dispatch }) => {
@@ -142,6 +166,147 @@ const surveyElementBundle = {
           surveyElement: { ...surveyElement },
         }
       })
+    },
+    //Retrieve the next survey element assigned to the surveyor for the currently selected survey.
+    //Hits GET /api/survey/:surveyId/assignment (server handler AssignSurveyElement) — the server picks the next assignment for the authenticated surveyor, so the client doesn't track position.
+    //The assignment carries fdId/saId plus any survey metadata; we seed the surveyElement from it and then hand fdId to doAutofillFromNsi so the live NSI structure properties hydrate the row.
+    //The server returns {"result":"completed"} once all assignments are done — we skip the autofill in that case.
+    doSurveyFetchNext: () => ({ dispatch, store, apiGet }) => {
+      const survey = store.selectSurvey();
+      const surveyId = survey && survey.id;
+      if (!surveyId) {
+        console.warn("doSurveyFetchNext: no survey selected");
+        return;
+      }
+      if (store.selectSurveyElement().fetchingAssignment) return;
+      dispatch({
+        type: "SURVEY_LOADED",
+        payload: { surveyElement: { fetchingAssignment: true } },
+      });
+      apiGet(`/api/survey/${surveyId}/assignment`, (err, body) => {
+        if (err) {
+          console.error(`Failed to fetch next assignment for survey ${surveyId}:`, err);
+          dispatch({ type: "SURVEY_LOADED", payload: { surveyElement: { fetchingAssignment: false } } });
+          return;
+        }
+        if (!body) {
+          console.warn(`doSurveyFetchNext: empty assignment response for survey ${surveyId}`);
+          dispatch({ type: "SURVEY_LOADED", payload: { surveyElement: { fetchingAssignment: false } } });
+          return;
+        }
+        if (body.result === "completed") {
+          console.log(`doSurveyFetchNext: all assignments completed for survey ${surveyId}`);
+          // defaultSurvey already has fetchingAssignment:false and atFirst:false.
+          dispatch({ type: "SURVEY_LOADED", payload: { surveyElement: { ...defaultSurvey } } });
+          return;
+        }
+        // Reset transient/edit state by starting from defaultSurvey (which clears fetchingAssignment + atFirst), then overlay whatever the server returned (saId, fdId, x, y, occupancyType, damcat, ...).
+        // awaitingSubmit gates the NEXT button so the loaded assignment can't be discarded by another NEXT click until it's submitted or the user goes back.
+        dispatch({
+          type: "SURVEY_LOADED",
+          payload: { surveyElement: { ...defaultSurvey, ...body, awaitingSubmit: true } },
+        });
+        // Pull live structure properties from NSI for this fdId; doAutofillFromNsi handles the fetch + dispatch.
+        if (body.fdId != null) {
+          store.doAutofillFromNsi({ fd_id: body.fdId });
+        } else {
+          console.warn(`doSurveyFetchNext: assignment for survey ${surveyId} has no fdId`);
+        }
+      });
+    },
+    //Roll the current assignment back one survey_order step and load that element.
+    //Hits GET /api/survey/:surveyId/previous (server handler PreviousSurveyElement) — server returns a SurveyStructure shaped exactly like doSurveyFetchNext so the same hydrate-then-autofill flow applies. When the server reports the user is already on the first assignment it returns {"result":"first"}; we set surveyElement.atFirst so the tray button can disable itself instead of looping a failing call.
+    doSurveyFetchPrevious: () => ({ dispatch, store, apiGet }) => {
+      const survey = store.selectSurvey();
+      const surveyId = survey && survey.id;
+      if (!surveyId) {
+        console.warn("doSurveyFetchPrevious: no survey selected");
+        return;
+      }
+      if (store.selectSurveyElement().fetchingAssignment) return;
+      dispatch({
+        type: "SURVEY_LOADED",
+        payload: { surveyElement: { fetchingAssignment: true } },
+      });
+      apiGet(`/api/survey/${surveyId}/previous`, (err, body) => {
+        if (err) {
+          console.error(`Failed to fetch previous assignment for survey ${surveyId}:`, err);
+          // The server's PreviousSurveyElement doesn't yet have a "no previous" branch — when the user is on the first assignment, PreviousAssignedSurveyElement falls through with uuid.Nil and the AssignSurvey insert violates the FK, surfacing as a 500. Treat that specific status as atFirst so the surveyor doesn't keep poking a known-failing endpoint; any other status (auth/network) leaves the button enabled so a retry remains possible. Once the server returns {"result":"first"} the body branch below takes over and this fallback becomes a no-op.
+          const isAtFirst =
+            err && typeof err.message === "string" && err.message.indexOf("500") !== -1;
+          dispatch({
+            type: "SURVEY_LOADED",
+            payload: { surveyElement: { fetchingAssignment: false, atFirst: !!isAtFirst } },
+          });
+          return;
+        }
+        if (!body) {
+          console.warn(`doSurveyFetchPrevious: empty assignment response for survey ${surveyId}`);
+          dispatch({ type: "SURVEY_LOADED", payload: { surveyElement: { fetchingAssignment: false } } });
+          return;
+        }
+        if (body.result === "first") {
+          console.log(`doSurveyFetchPrevious: already at first assignment for survey ${surveyId}`);
+          dispatch({
+            type: "SURVEY_LOADED",
+            payload: { surveyElement: { fetchingAssignment: false, atFirst: true } },
+          });
+          return;
+        }
+        // defaultSurvey clears fetchingAssignment + atFirst back to false so a successful PREVIOUS re-enables the button.
+        dispatch({
+          type: "SURVEY_LOADED",
+          payload: { surveyElement: { ...defaultSurvey, ...body } },
+        });
+        if (body.fdId != null) {
+          store.doAutofillFromNsi({ fd_id: body.fdId });
+        } else {
+          console.warn(`doSurveyFetchPrevious: assignment for survey ${surveyId} has no fdId`);
+        }
+      });
+    },
+    //POST the current surveyElement as a SurveyStructure to /api/survey/:surveyId/assignment (server handler SaveSurveyAssignment).
+    //The handler binds models.SurveyStructure — numeric fields (found_ht/stories/sq_ft/x/y/fdId) are coerced because text inputs store strings. Transient UI flags (_invalid, xy_updating, shouldInitialize, survey_element_invalid) are stripped.
+    //On success advance to the next assignment so the surveyor doesn't have to click NEXT manually.
+    doSurveySubmit: () => ({ store, apiPost }) => {
+      const survey = store.selectSurvey();
+      const surveyId = survey && survey.id;
+      if (!surveyId) {
+        console.warn("doSurveySubmit: no survey selected");
+        return;
+      }
+      const s = store.selectSurveyElement();
+      if (!s.saId) {
+        console.warn("doSurveySubmit: no active assignment to save (missing saId)");
+        return;
+      }
+      const body = {
+        saId: s.saId,
+        fdId: typeof s.fdId === "string" ? parseInt(s.fdId, 10) : s.fdId,
+        x: Number(s.x),
+        y: Number(s.y),
+        invalidStructure: !!s.invalidStructure,
+        noStreetView: !!s.noStreetView,
+        cbfips: s.cbfips || "",
+        occupancyType: s.occupancyType || "",
+        damcat: s.damcat || "",
+        found_ht: Number(s.found_ht),
+        stories: Number(s.stories),
+        sq_ft: Number(s.sq_ft),
+        found_type: s.found_type || "",
+        replacement_type: s.replacement_type || "",
+        quality: s.quality || "",
+        const_type: s.const_type || "",
+        garage: s.garage || "",
+        roof_style: s.roof_style || "",
+      };
+      apiPost(`/api/survey/${surveyId}/assignment`, body, (err) => {
+        if (err) {
+          console.error(`Failed to save assignment for survey ${surveyId}:`, err);
+          return;
+        }
+        store.doSurveyFetchNext();
+      });
     },
     doSurveyNext:()=>({store})=>{
       //this is some place holder logic to allow users to select the next survey by clicking on the map instead of getting it from the api.
@@ -158,8 +323,9 @@ const surveyElementBundle = {
         const feature = map.forEachFeatureAtPixel(pixel, (feat) => feat);
         console.log(feature?feature:null)
         console.log(feature?feature.getId():null);
-        store.doSelectFeature(feature?feature.getId():null)
-        store.doAutofillFromNsi(feature?feature.getProperties():null)
+        const fdId = feature ? feature.getId() : null;
+        store.doSelectFeature(fdId)
+        store.doAutofillFromNsi(fdId != null ? { fdId } : null)
         clearMapfunction(map, 'singleclick', nextFunction);
         nextFunction = null;
       }

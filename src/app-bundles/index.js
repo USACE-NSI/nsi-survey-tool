@@ -8,9 +8,10 @@ import createNewSurveyBundle from "./survey-bundle";
 import activeSurveysBundle from "./active-surveys-bundle";
 import dashboardBundle from "./dashboard-bundle";
 import completedSurveysBundle from "./completed-surveys-bundle";
-import userBundle from "./user-bundle";
 import membersBundle from "./members-bundle"
 import surveyResultsBundle from "./survey-results-bundle";
+import authBundle from "./auth-bundle.js"
+import nsiBundle from "./nsi-bundle";
 
 export default composeBundles(
     createCacheBundle({ cacheFn: cache.set }),
@@ -22,7 +23,8 @@ export default composeBundles(
     activeSurveysBundle,
     dashboardBundle,
     completedSurveysBundle,
-    userBundle,
     membersBundle,
-    surveyResultsBundle
+    surveyResultsBundle,
+    authBundle,
+    nsiBundle
 )

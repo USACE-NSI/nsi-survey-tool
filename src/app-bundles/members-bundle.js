@@ -1,37 +1,47 @@
 //the members bundle is primarily used to define what surveyors are included on a survey. they can be added or removed, a list of members is managed in the surveyBundle for the specific members on a survey. This is the grand list of all registered users on the site.
-//@TODO add ability to fetch registered users from the api to load the initial state. add the ability to register a new user on their first login.
 const membersBundle = {
     name: 'members',
     getReducer: () => {
       const initialState = {
-         list: ["NGO.ANGELA.T", "WALTER.GERARD.J", "COLBY-GEORGE.NOAH", "MCMASTER.JORDAN.M", "Randal Goss", "LUTZ.NICHOLAS.JOHN","MCGLINCH.NATALIE.THERESE"]//fetched from api
+         list: [],
+         fetching: false,
+         loaded: false,
         };
       return (state = initialState, { type, payload }) => {
         switch(type){
-            case "UPDATE_MEMBERS":
-                return {...state, ...payload}
+            case "MEMBERS_FETCH_START":
+                return {...state, fetching: true};
+            case "MEMBERS_FETCH_FINISH":
+                return {...state, fetching: false, loaded: true, ...payload};
         }
         return state;
       };
-    }/*,
-    doAddMembers: (state) => ({dispatch, store})=>{
-      console.log("dispatching " + state)
-        var activeSurveys = store.selectActiveSurveys()
-        console.log(activeSurveys)
-        var currentSurveys = null
-        if(activeSurveys){
-            currentSurveys = activeSurveys.list
-            currentSurveys.push(state)
-        }else{
-            currentSurveys = [state]
+    },
+    doFetchMembers: () => ({ dispatch, apiGet }) => {
+      dispatch({ type: "MEMBERS_FETCH_START" });
+      apiGet(`/api/users`, (err, body) => {
+        if (err) {
+          console.error("Failed to fetch members:", err);
+          dispatch({ type: "MEMBERS_FETCH_FINISH", payload: { list: [] } });
+          return;
         }
-        
-        
-        dispatch({
-            type: "UPDATE_MEMBERS",
-            payload: {list:currentSurveys}
-          });
-    }*/,
+        // Keep both userId and userName — POST flows need userId to populate SurveyMember rows.
+        const list = Array.isArray(body)
+          ? body.filter((u) => u && u.userName && u.userId)
+          : [];
+        dispatch({ type: "MEMBERS_FETCH_FINISH", payload: { list } });
+      });
+    },
     selectMembers: (state) => state.members,
+    reactMembersFetch: (state) => {
+      if (
+        state.auth &&
+        state.auth.token &&
+        !state.members.loaded &&
+        !state.members.fetching
+      ) {
+        return { actionCreator: "doFetchMembers" };
+      }
+    },
   };
 export default membersBundle

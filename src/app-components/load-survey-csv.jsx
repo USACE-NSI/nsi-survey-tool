@@ -9,6 +9,7 @@ import {
 } from "@usace/groundwork";
 import { useConnect } from "redux-bundler-hook";
 import Papa from "papaparse";
+import UploadPolygon from "./upload-polygon";
 
 export default function LoadSurveyCSV() {
   const fwLinkHost = "https://www.hec.usace.army.mil/fwlink/?linkid=";
@@ -92,6 +93,8 @@ export default function LoadSurveyCSV() {
           </span>
         </div>
       </div>
+
+      <UploadPolygon />
 
       {/* Upload Zone */}
       <div className="gw-space-y-2">

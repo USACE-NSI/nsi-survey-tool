@@ -11,12 +11,12 @@ import ViewCompletedSurveys from "../../app-components/view-completed-surveys";
 export default function UserDashboard() {
   const [trayWidth, setTrayWidth] = useState(350);
   const [isResizing, setIsResizing] = useState(false);
-  const { user, dashboard, doUpdateDashboardView, doCreateNewSurvey } =
+  const { authUsername, dashboard, doUpdateDashboardView, doCreateNewSurvey } =
     useConnect(
-      "selectUser",
+      "selectAuthUsername",
       "selectDashboard",
       "doUpdateDashboardView",
-      "doCreateNewSurvey"
+      "doCreateNewSurvey",
     );
   const openCreateNew = () => {
     console.log("opening create new surveys");
@@ -71,7 +71,7 @@ export default function UserDashboard() {
       >
         <Button
           size="xl"
-          disabled={!user.canCreateNewSurvey}
+          disabled={!authUsername}
           className="gw-w-full gw-flex gw-items-center gw-justify-center gw-whitespace-nowrap bg-secondary border-r border-white/20 px-4 py-2 first:rounded-l-md last:rounded-r-md st-btn-tb2"
           onClick={openCreateNew}
         >

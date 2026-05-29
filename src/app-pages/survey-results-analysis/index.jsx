@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { useConnect } from "redux-bundler-hook";
-import Papa from "papaparse";
 import ViewResultsBar from "../../app-components/view-results-bar";
 import ViewResultsPie from "../../app-components/view-results-pie";
 import ViewResultsTable from "../../app-components/view-results-table";
@@ -18,13 +17,17 @@ export default function SurveyResultsAnalysis() {
   const [trayWidth, setTrayWidth] = useState(350);
   const [isResizing, setIsResizing] = useState(false);
 
-  const { survey, surveyResults, doUpdateSurvey, doUpdateSurveyResults } =
-    useConnect(
-      "selectSurvey",
-      "selectSurveyResults",
-      "doUpdateSurvey",
-      "doUpdateSurveyResults"
-    );
+  const {
+    survey,
+    surveyResults,
+    doUpdateSurveyResults,
+    doFetchSurveyResults,
+  } = useConnect(
+    "selectSurvey",
+    "selectSurveyResults",
+    "doUpdateSurveyResults",
+    "doFetchSurveyResults"
+  );
   const fieldFilter = [
     { field: "All Fields", fieldType: "mixed", display: "All Fields" },
     { field: "completed", fieldType: "catagorical", display: "Completed" },
@@ -64,7 +67,7 @@ export default function SurveyResultsAnalysis() {
       display: "Foundation Type",
     },
     {
-      field: "rsmeansType",
+      field: "reconstructionType",
       fieldType: "catagorical",
       display: "Replacement Type",
     },
@@ -88,57 +91,12 @@ export default function SurveyResultsAnalysis() {
       viewState: type,
     });
   };
-  const toBool = (val) => {
-    if (typeof val === "boolean") return val;
-    const s = String(val).toLowerCase().trim();
-    return ["true", "1", "yes", "t", "y"].includes(s);
-  };
-
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      Papa.parse(file, {
-        header: true,
-        skipEmptyLines: true,
-        complete: (results) => {
-          const newResults = [
-            ...survey.results,
-            ...results.data.map((row) => ({
-              srId: row.srId,
-              userId: row.userId,
-              userName: row.userName,
-              completed: toBool(row.completed),
-              isControl: toBool(row.isControl),
-              saId: row.saId,
-              fdId: row.fdId,
-              x: row.x,
-              y: row.y,
-              invalidStructure: toBool(row.invalidStructure),
-              noStreetView: toBool(row.noStreetView),
-              cbfips: row.cbfips,
-              occtype: row.occtype,
-              stDamcat: row.stDamcat,
-              foundHt: row.foundHt,
-              numStory: row.numStory,
-              sqft: row.sqft,
-              foundType: row.foundType,
-              rsmeansType: row.rsmeansType,
-              quality: row.quality,
-              constType: row.constType,
-              garage: row.garage,
-              roofStyle: row.roofStyle,
-            })),
-          ];
-
-          const updatedSurvey = {
-            ...survey,
-            results: newResults,
-          };
-          doUpdateSurvey(updatedSurvey);
-        },
-      });
+  useEffect(() => {
+    if (survey && survey.id) {
+      doFetchSurveyResults(survey.id);
     }
-  };
+  }, [survey && survey.id]);
+
   useEffect(() => {
     const handleMouseMove = (e) => {
       if (!isResizing) return;
@@ -173,7 +131,7 @@ export default function SurveyResultsAnalysis() {
       {/* 1. Left Filter & Controls Tray */}
       <div
         style={{ width: `${trayWidth}px` }}
-        className="gw-relative gw-flex-none gw-bg-white gw-border-r gw-border-slate-200 gw-shadow-sm gw-z-20"
+        className="gw-relative gw-flex-none gw-bg-white gw-border-r gw-border-slate-200 gw-shadow-sm gw-z-10"
       >
         <div className="gw-p-8 gw-space-y-8">
           <div>
@@ -321,30 +279,15 @@ export default function SurveyResultsAnalysis() {
 
       {/* 2. Main Stage */}
       <div className="gw-flex-1 gw-overflow-auto gw-p-8">
-        {/* This should be removed once we give the ability to fetch results from the database/api @TODO make sure that results can be fetched. */}
         {(!survey.results || survey.results.length === 0) && (
-          <div className="gw-relative gw-group">
-            <div className="gw-border-2 gw-border-dashed gw-border-slate-300 gw-rounded-lg gw-p-8 gw-text-center hover:gw-border-blue-400 hover:gw-bg-blue-50 gw-transition-all">
-              <i className="mdi mdi-file-upload-outline gw-text-3xl gw-text-slate-400 gw-mb-2" />
-              <p className="gw-text-sm gw-text-slate-600">
-                Drag and drop your results<b>.csv</b> here or{" "}
-                <span className="gw-text-blue-600 gw-font-semibold">
-                  browse files
-                </span>
-              </p>
-              <p className="gw-text-xs gw-text-slate-400 gw-mt-1">
-                Required columns: srId, userId, userName, completed, isControl,
-                saId, fdId, x, y, invalidStructure, noStreetView, cbfips,
-                occtype, stDamcat, foundHt, numStory, sqft, foundType,
-                rsmeansType, quality, constType, garage, roofStyle
-              </p>
-              <input
-                type="file"
-                accept=".csv"
-                className="gw-absolute gw-inset-0 gw-opacity-0 gw-cursor-pointer"
-                onChange={handleFileUpload}
-              />
-            </div>
+          <div className="gw-border-2 gw-border-dashed gw-border-slate-300 gw-rounded-lg gw-p-8 gw-text-center gw-mb-4">
+            <p className="gw-text-sm gw-text-slate-600">
+              No results available for this survey.
+            </p>
+            <p className="gw-text-xs gw-text-slate-400 gw-mt-1">
+              Results are loaded from the survey report endpoint when this page
+              opens.
+            </p>
           </div>
         )}
 

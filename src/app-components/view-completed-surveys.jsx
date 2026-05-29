@@ -15,17 +15,21 @@ import Tooltip from "@mui/material/Tooltip";
 export default function ViewCompletedSurveys() {
   const {
     completedSurveys,
-    user,
+    authUsername,
+    authRolesCaseInsensitiveObj,
     doUpdateUrl,
     doUpdateDashboardView,
-    doUpdateSurvey,
+    doSelectSurvey,
   } = useConnect(
     "selectCompletedSurveys",
-    "selectUser",
+    "selectAuthUsername",
+    "selectAuthRolesCaseInsensitiveObj",
     "doUpdateUrl",
     "doUpdateDashboardView",
-    "doUpdateSurvey"
+    "doSelectSurvey",
   );
+
+  const isAdmin = !!authRolesCaseInsensitiveObj?.ADMIN;
 
   const openManage = (survey) => {
     doUpdateDashboardView({
@@ -34,7 +38,12 @@ export default function ViewCompletedSurveys() {
       viewActive: false,
       viewCompleted: false,
     });
-    doUpdateSurvey(survey);
+    doSelectSurvey(survey);
+  };
+
+  const openResults = (survey) => {
+    doSelectSurvey(survey);
+    doUpdateUrl("/results");
   };
 
   return (
@@ -108,8 +117,15 @@ export default function ViewCompletedSurveys() {
                   <div className="gw-flex gw-justify-left gw-gap-2">
                     <Tooltip title="View Detailed Statistics">
                       <Button
-                        className="gw-p-2 gw-bg-gray-600 hover:gw-bg-gray-600/80 gw-text-white gw-rounded-md"
-                        onClick={() => doUpdateUrl("/results")}
+                        disabled={
+                          !(item.owners?.includes(authUsername) || isAdmin)
+                        }
+                        className={`gw-p-2 gw-rounded-md ${
+                          item.owners?.includes(authUsername) || isAdmin
+                            ? "gw-bg-gray-600 hover:gw-bg-gray-600/80 gw-text-white"
+                            : "gw-bg-red-600 gw-text-white"
+                        }`}
+                        onClick={() => openResults(item)}
                       >
                         <BarChartIcon fontSize="small" />
                       </Button>
@@ -117,9 +133,9 @@ export default function ViewCompletedSurveys() {
 
                     <Tooltip title="Manage Archive">
                       <Button
-                        disabled={!item.owners?.includes(user.name)}
+                        disabled={!item.owners?.includes(authUsername)}
                         className={`gw-p-2 gw-rounded-md ${
-                          item.owners?.includes(user.name)
+                          item.owners?.includes(authUsername)
                             ? "gw-bg-gray-600 hover:gw-bg-gray-600/80 gw-text-white"
                             : "gw-bg-red-600 gw-text-white"
                         }`}

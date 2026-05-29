@@ -1,19 +1,16 @@
 import { useConnect } from "redux-bundler-hook";
-import { LoginButton, ProfileDropdown } from "@usace/groundwork";
+import { LoginButton } from "@usace/groundwork";
+import ProfileMenu from "./profile-menu";
 
 export default function NavLinks() {
   const fwLinkHost = " https://www.hec.usace.army.mil/fwlink/?linkid=";
-  const { user, doUpdateUrl, doUpdateUser } = useConnect(
-    "selectUser",
-    "doUpdateUrl",
-    "doUpdateUser"
+  const { authUsername, doAuthLogin } = useConnect(
+    "selectAuthUsername",
+    "doAuthLogin",
   );
-  const setEmail = (input) => {
-    doUpdateUser({ name: input, canCreateNewSurvey: true }); /// base user canCreateNewSurvey based on roles in rba model.
-  };
   return (
     <div className="flex justify-between items-center bg-usace-black text-white rounded-2 p-2">
-      {user.name ? (
+      {authUsername ? (
         <div className="gw-flex items-center">
           <a
             style={{
@@ -25,22 +22,8 @@ export default function NavLinks() {
           >
             Dashboard
           </a>
-          <div title={`Logged in as ${user.name}`}>
-            <ProfileDropdown
-              style={{ padding: "5px" }}
-              email={user.name}
-              showLogout
-              onLogout={() => {
-                setEmail(null);
-              }}
-              links={[
-                {
-                  id: "profile",
-                  text: "View Profile",
-                  link: "#",
-                },
-              ]}
-            />{" "}
+          <div title={`Logged in as ${authUsername}`}>
+            <ProfileMenu />{" "}
           </div>
           <a
             style={{ padding: "5px" }}
@@ -55,12 +38,11 @@ export default function NavLinks() {
         <div className="gw-flex items-center">
           <LoginButton
             onClick={() => {
-              // implement real login logic here
-              const unsafe_input = window.prompt("Enter your e-mail address");
-              if (unsafe_input) {
-                setEmail(unsafe_input);
-                doUpdateUrl("/dashboard");
-              }
+              doAuthLogin({
+                flowOverride: "browser",
+                kc_idp_hint: "login.gov",
+                redirectUrl: window.location.origin + "/dashboard",
+              });
             }}
           />
           <a

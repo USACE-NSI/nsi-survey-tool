@@ -6,38 +6,62 @@ export default function ManageSurvey() {
   const {
     survey,
     doUpdateSurvey,
+    doSaveSurvey,
     doUpdateDashboardView,
     doCompleteSurvey,
     doRestartSurvey,
+    doDeleteSurvey,
   } = useConnect(
     "selectSurvey",
     "doUpdateSurvey",
+    "doSaveSurvey",
     "doUpdateDashboardView",
     "doCompleteSurvey",
-    "doRestartSurvey"
+    "doRestartSurvey",
+    "doDeleteSurvey"
   );
 
   const handleUpdateSurvey = () => {
     if (isInvalid) return;
-    doUpdateSurvey(survey);
-    doUpdateDashboardView({
-      viewCreateNew: false,
-      viewManage: false,
-      viewActive: true,
-      viewCompleted: false,
+    doSaveSurvey(survey, {
+      onSuccess: () => {
+        doUpdateDashboardView({
+          viewCreateNew: false,
+          viewManage: false,
+          viewActive: true,
+          viewCompleted: false,
+        });
+        if (survey.completed) {
+          doCompleteSurvey(survey);
+        } else {
+          doRestartSurvey(survey);
+        }
+      },
     });
-
-    if (survey.completed) {
-      doCompleteSurvey(survey);
-    } else {
-      doRestartSurvey(survey);
-    }
   };
 
   const handleCheckedChange = (field) => (e) => {
     const s = { ...survey, [field]: e.target.checked };
     doUpdateSurvey(s);
   };
+
+  const handleDeleteSurvey = () => {
+    const confirmed = window.confirm(
+      `Delete survey "${survey.name}"? This cannot be undone.`
+    );
+    if (!confirmed) return;
+    doDeleteSurvey(survey, {
+      onSuccess: () => {
+        doUpdateDashboardView({
+          viewCreateNew: false,
+          viewManage: false,
+          viewActive: !survey.completed,
+          viewCompleted: !!survey.completed,
+        });
+      },
+    });
+  };
+
   const isInvalid = !survey.owners || survey.owners.length === 0;
   return (
     <div className="gw-p-10 gw-max-w-4xl gw-mx-auto">
@@ -147,9 +171,7 @@ export default function ManageSurvey() {
               </Button>
               <Button
                 className="gw-border-red-600 gw-bg-red-600 gw-text-white hover:gw-bg-red-600 gw-px-6 gw-rounded-md"
-                onClick={() => {
-                  /* add delete handler */
-                }}
+                onClick={handleDeleteSurvey}
               >
                 Delete
               </Button>
