@@ -1,5 +1,27 @@
 const urlencodeFormData = (fd) => new URLSearchParams([...fd]);
 
+// PKCE (RFC 7636) S256: 32 random bytes -> base64url verifier; SHA-256 of the
+// verifier -> base64url challenge. The verifier is stashed in sessionStorage
+// so the token exchange after the auth redirect can present it.
+const PKCE_VERIFIER_KEY = "pkce_code_verifier";
+
+const base64UrlEncode = (buffer) =>
+    btoa(String.fromCharCode(...new Uint8Array(buffer)))
+        .replaceAll("+", "-")
+        .replaceAll("/", "_")
+        .replaceAll("=", "");
+
+const generatePkcePair = async () => {
+    const verifierBytes = crypto.getRandomValues(new Uint8Array(32));
+    const verifier = base64UrlEncode(verifierBytes.buffer);
+    const challengeBytes = await crypto.subtle.digest(
+        "SHA-256",
+        new TextEncoder().encode(verifier),
+    );
+    const challenge = base64UrlEncode(challengeBytes);
+    return { verifier, challenge };
+};
+
 class Keycloak {
     constructor(opts) {
         // default values
@@ -57,7 +79,7 @@ class Keycloak {
         this.onLogout = config.onLogout;
     }
 
-    authenticate(overrides) {
+    async authenticate(overrides) {
         // allow run-time overrides of some of the config
         // this lets you switch between login.gov or eams-a for the
         // browser flow or use a different redirect url depending
@@ -66,9 +88,12 @@ class Keycloak {
         const kc_idp_hint = overrides.kc_idp_hint || this.kc_idp_hint;
         const redirectUrl = overrides.redirectUrl || this.redirectUrl;
 
+        const { verifier, challenge } = await generatePkcePair();
+        sessionStorage.setItem(PKCE_VERIFIER_KEY, verifier);
+
         const url = `${this.browserFlowUrl
             }/realms/${realm}/protocol/openid-connect/auth?response_type=code&kc_idp_hint=${kc_idp_hint}&client_id=${this.client
-            }&scope=openid&redirect_uri=${redirectUrl}&nocache=${new Date().getTime()}`;
+            }&scope=openid&redirect_uri=${redirectUrl}&code_challenge=${challenge}&code_challenge_method=S256&nocache=${new Date().getTime()}`;
         window.location.href = url;
     }
 
@@ -216,6 +241,11 @@ class Keycloak {
         data.append("grant_type", "authorization_code");
         data.append("client_id", this.client);
         data.append("redirect_uri", this.redirectUrl);
+        const verifier = sessionStorage.getItem(PKCE_VERIFIER_KEY);
+        if (verifier) {
+            data.append("code_verifier", verifier);
+            sessionStorage.removeItem(PKCE_VERIFIER_KEY);
+        }
         this.fetch(url, data, this.parseTokens.bind(this));
     }
 
