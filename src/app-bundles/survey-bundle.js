@@ -99,6 +99,10 @@ const surveyBundle = {
     //Load a survey from the active/completed list into the survey bundle and fetch its perimeter geometry. The list rows intentionally don't carry geometry, so we hit /api/survey/:surveyid/perimeter and merge perimeter_geom -> perimeterGeometry once it returns. Also pushes the perimeter into the map bundle so the map page can render it as a layer and fit the view. Once the perimeter is in hand, kick off the NSI structure prefetch so doAutofillFromNsi can serve single-structure lookups out of memory (monkey patch for the 500ing /nsiapi/structure/:fdId endpoint). Use this anywhere a user "opens" a survey.
     doSelectSurvey: (surveyData) => ({ dispatch, apiGet, store }) => {
       if (!surveyData || !surveyData.id) return;
+      // Clear the previously surveyed element so the tray starts empty/locked
+      // for the newly selected survey; the survey page auto-loads the first
+      // assignment via NEXT on mount (keyed off the now-absent saId).
+      if (store && store.doSurveyResetElement) store.doSurveyResetElement();
       // Clear any stale geometry and NSI cache from a previously selected survey while the fetch is in flight.
       dispatch({
         type: "UPDATE_SURVEY",

@@ -37,7 +37,7 @@ const occs = {
     "REL1",
     "EDU1",
     "EDU2",
-    "UNKN",
+    "Unknown",
   ],
 };
 const damcats = [
@@ -45,7 +45,7 @@ const damcats = [
   { val: "IND", display: "Industrial" },
   { val: "COM", display: "Commercial" },
   { val: "PUB", display: "Public" },
-  { val: "UNK", display: "Unknown" },
+  { val: "Unknown", display: "Unknown" },
 ];
 
 const foundTypes = [
@@ -62,7 +62,7 @@ const foundTypes = [
   { val: "SLWB", display: "Split Level Basement" },
   { val: "SLNB", display: "Split Level No Basement" },
   { val: "SLUN", display: "Split Level Unk Basement" },
-  { val: "Unkn", display: "Unknown" },
+  { val: "Unknown", display: "Unknown" },
 ];
 
 const rsMeansTypes = {
@@ -182,6 +182,14 @@ function SurveyTray() {
     "doSurveyElementInvalid",
     "doSurveyDrawSqft"
   );
+
+  // The entry form stays locked until a real assignment is presented. "View
+  // Survey" auto-fires NEXT (see ViewActiveSurveys.openMap), which sets
+  // isLoading while the assignment is in flight; surveyElement only becomes
+  // ready once an saId is loaded and loading has settled. Before that — the
+  // window after opening a survey, or after all assignments are completed —
+  // there is nothing valid to edit, so the fieldset below is disabled.
+  const surveyReady = !!surveyElement.saId && !surveyElement.isLoading;
   const handleChange = (field) => (e) => {
     let val = e.target.value;
     console.log(field + " " + val);
@@ -286,8 +294,31 @@ function SurveyTray() {
           marginTop: "5px",
         }}
       >
-        Structure ID: {surveyElement.fdId}
+        Structure ID: {surveyReady ? surveyElement.fdId : "—"}
       </div>
+      {!surveyReady && (
+        <div
+          style={{
+            width: "100%",
+            textAlign: "center",
+            fontSize: "12px",
+            fontStyle: "italic",
+            color: "#666",
+            marginBottom: "5px",
+          }}
+        >
+          {surveyElement.isLoading || nsiPrefetching
+            ? "Loading assignment…"
+            : "No assignment loaded."}
+        </div>
+      )}
+      {/* Entry stays locked until a valid assignment is presented. A disabled
+          fieldset natively disables every input/select/button it contains; the
+          PREVIOUS/NEXT/SUBMIT toolbar above is intentionally left outside it. */}
+      <fieldset
+        disabled={!surveyReady}
+        style={{ border: 0, padding: 0, margin: 0, minInlineSize: 0 }}
+      >
       <div
         className="form-check"
         style={{ marginLeft: "20px", marginBottom: "5px" }}
@@ -688,6 +719,7 @@ function SurveyTray() {
           </div>
         </div>
       </div>
+      </fieldset>
     </div>
   );
 }

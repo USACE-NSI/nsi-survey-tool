@@ -14,29 +14,29 @@ let clearMapfunction = function (map, evt, fun) {
   map.getTarget().style.cursor = 'default';
 }
 const defaultSurvey = {
-  fdId: -1,
+  fdId: "n/a",
   invalidStructure: false,
   noStreetView: false,
   shouldInitialize: false,
-  occupancyType: "RES1",
-  damcat: "UNK",
+  occupancyType: "Unknown",
+  damcat: "Unknown",
   xy_updating: false,
-  x: 1.0,
-  y: 5.0,
+  x: 0.0,
+  y: 0.0,
   x_invalid: false,
   y_invalid: false,
-  found_ht: 3.0,
+  found_ht: 0.0,
   foundHtInvalid: false,
-  stories: 10,
+  stories: 0,
   storiesInvalid: false,
-  sq_ft: 30.0,
+  sq_ft: 0.0,
   sqFtInvalid: false,
-  found_type: "Base",
-  replacement_type: "Aircraft Hangar",
-  quality: "Below Average",
-  const_type: "Stucco",
-  garage: "Three Car Built In",
-  roof_style: "Gambrel Style",
+  found_type: "Unknown",
+  replacement_type: "Unknown",
+  quality: "Unknown",
+  const_type: "Unknown",
+  garage: "Unknown",
+  roof_style: "Unknown",
   survey_element_invalid: true,
   // Navigation state for tray gating. fetchingAssignment is true while a
   // NEXT/PREVIOUS request is in flight (prevents double-clicks); atFirst is
@@ -44,6 +44,11 @@ const defaultSurvey = {
   // to (server returns {"result":"first"} from /survey/:id/previous).
   fetchingAssignment: false,
   atFirst: false,
+  // True from the moment a survey is opened / a NEXT|PREVIOUS load begins until
+  // a valid assignment has been presented (or loading settles). The survey tray
+  // keeps its entry form disabled while this is true so a surveyor can't edit
+  // before a real assignment is on screen.
+  isLoading: false,
   // True once NEXT has loaded an assignment, which keeps the NEXT button
   // disabled so a second click can't discard the surveyor's unsaved entries.
   // Cleared by SUBMIT (which advances on its own) and by PREVIOUS.
@@ -62,7 +67,12 @@ const surveyElementBundle = {
             console.log(state)
             console.log("payload")
             console.log(payload)
-            return { ...state, ...payload.surveyElement }; 
+            return { ...state, ...payload.surveyElement };
+          // Full replace (not merge) so transient keys like saId/cbfips from a
+          // prior assignment are cleared, not just overwritten. Used when a new
+          // survey is selected so the tray doesn't carry stale element data.
+          case "SURVEY_ELEMENT_RESET":
+            return { ...defaultSurvey };
           default:
             
         }
@@ -139,7 +149,7 @@ const surveyElementBundle = {
             type: "SURVEY_LOADED",
             payload: {
               surveyElement: {
-                damcat: props.st_damcat || "UNK",
+                damcat: props.st_damcat || "Unknown",
                 occupancyType: occtype,
                 x: props.x,
                 y: props.y,
@@ -158,6 +168,12 @@ const surveyElementBundle = {
           console.error(`Failed to autofill survey element from NSI for fd_id ${fdId}:`, err);
         },
       });
+    },
+    // Reset the survey element back to defaultSurvey. Dispatched when a survey
+    // is (re)selected so a stale, locked-out element doesn't linger in the tray
+    // and so the survey page can detect "no assignment loaded yet" via !saId.
+    doSurveyResetElement: () => ({ dispatch }) => {
+      dispatch({ type: "SURVEY_ELEMENT_RESET" });
     },
     doSurveyUpdateData: (surveyElement) => ({ dispatch }) => {
       dispatch({
@@ -181,17 +197,17 @@ const surveyElementBundle = {
       if (store.selectSurveyElement().fetchingAssignment) return;
       dispatch({
         type: "SURVEY_LOADED",
-        payload: { surveyElement: { fetchingAssignment: true } },
+        payload: { surveyElement: { fetchingAssignment: true, isLoading: true } },
       });
       apiGet(`/api/survey/${surveyId}/assignment`, (err, body) => {
         if (err) {
           console.error(`Failed to fetch next assignment for survey ${surveyId}:`, err);
-          dispatch({ type: "SURVEY_LOADED", payload: { surveyElement: { fetchingAssignment: false } } });
+          dispatch({ type: "SURVEY_LOADED", payload: { surveyElement: { fetchingAssignment: false, isLoading: false } } });
           return;
         }
         if (!body) {
           console.warn(`doSurveyFetchNext: empty assignment response for survey ${surveyId}`);
-          dispatch({ type: "SURVEY_LOADED", payload: { surveyElement: { fetchingAssignment: false } } });
+          dispatch({ type: "SURVEY_LOADED", payload: { surveyElement: { fetchingAssignment: false, isLoading: false } } });
           return;
         }
         if (body.result === "completed") {
@@ -226,7 +242,7 @@ const surveyElementBundle = {
       if (store.selectSurveyElement().fetchingAssignment) return;
       dispatch({
         type: "SURVEY_LOADED",
-        payload: { surveyElement: { fetchingAssignment: true } },
+        payload: { surveyElement: { fetchingAssignment: true, isLoading: true } },
       });
       apiGet(`/api/survey/${surveyId}/previous`, (err, body) => {
         if (err) {
@@ -236,20 +252,20 @@ const surveyElementBundle = {
             err && typeof err.message === "string" && err.message.indexOf("500") !== -1;
           dispatch({
             type: "SURVEY_LOADED",
-            payload: { surveyElement: { fetchingAssignment: false, atFirst: !!isAtFirst } },
+            payload: { surveyElement: { fetchingAssignment: false, atFirst: !!isAtFirst, isLoading: false } },
           });
           return;
         }
         if (!body) {
           console.warn(`doSurveyFetchPrevious: empty assignment response for survey ${surveyId}`);
-          dispatch({ type: "SURVEY_LOADED", payload: { surveyElement: { fetchingAssignment: false } } });
+          dispatch({ type: "SURVEY_LOADED", payload: { surveyElement: { fetchingAssignment: false, isLoading: false } } });
           return;
         }
         if (body.result === "first") {
           console.log(`doSurveyFetchPrevious: already at first assignment for survey ${surveyId}`);
           dispatch({
             type: "SURVEY_LOADED",
-            payload: { surveyElement: { fetchingAssignment: false, atFirst: true } },
+            payload: { surveyElement: { fetchingAssignment: false, atFirst: true, isLoading: false } },
           });
           return;
         }

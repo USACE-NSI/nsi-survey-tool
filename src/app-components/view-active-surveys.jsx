@@ -23,6 +23,7 @@ export default function ViewActiveSurveys() {
     doUpdateDashboardView,
     doSelectSurvey,
     doFetchSurveyElements,
+    doSurveyFetchNext,
   } = useConnect(
     "selectActiveSurveys",
     "selectAuthUsername",
@@ -31,6 +32,7 @@ export default function ViewActiveSurveys() {
     "doUpdateDashboardView",
     "doSelectSurvey",
     "doFetchSurveyElements",
+    "doSurveyFetchNext",
   );
 
   const isAdmin = !!authRolesCaseInsensitiveObj?.ADMIN;
@@ -47,7 +49,13 @@ export default function ViewActiveSurveys() {
   };
 
   const openMap = (survey) => {
+    // doSelectSurvey resets the survey element (clearing saId, setting
+    // isLoading:false). Immediately auto-fire NEXT so the surveyor lands on the
+    // first assignment without an extra click; doSurveyFetchNext flips
+    // isLoading on, which keeps the tray's entry form disabled until a valid
+    // assignment is presented.
     doSelectSurvey(survey);
+    doSurveyFetchNext();
     doUpdateUrl("/survey");
   };
 
