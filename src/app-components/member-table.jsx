@@ -10,17 +10,17 @@ import {
 import { useConnect } from "redux-bundler-hook";
 
 export default function MemberTable() {
-  const { survey, members, doUpdateSurvey, doRemoveMemberFromSurvey } = useConnect(
+  const { survey, members, doUpsertSurveyMember, doRemoveMemberFromSurvey } = useConnect(
     "selectSurvey",
     "selectMembers",
-    "doUpdateSurvey",
+    "doUpsertSurveyMember",
     "doRemoveMemberFromSurvey",
   );
 
   const handleAddMember = (memberName) => {
     if (memberName && !survey.members?.includes(memberName)) {
-      const updatedMembers = [...(survey.members || []), memberName];
-      doUpdateSurvey({ ...survey, members: updatedMembers });
+      // Persist the membership immediately. A new surveyor is not an owner.
+      doUpsertSurveyMember(memberName, false);
     }
   };
 
@@ -28,14 +28,10 @@ export default function MemberTable() {
     doRemoveMemberFromSurvey(memberName);
   };
 
-  // Logic to add/remove multiple owners
+  // Toggle the owner flag for an existing member, persisting it via the same upsert endpoint.
   const handleToggleOwner = (memberName) => {
-    const currentOwners = survey.owners || [];
-    const updatedOwners = currentOwners.includes(memberName)
-      ? currentOwners.filter((o) => o !== memberName)
-      : [...currentOwners, memberName];
-
-    doUpdateSurvey({ ...survey, owners: updatedOwners });
+    const isOwner = !(survey.owners || []).includes(memberName);
+    doUpsertSurveyMember(memberName, isOwner);
   };
 
   return (

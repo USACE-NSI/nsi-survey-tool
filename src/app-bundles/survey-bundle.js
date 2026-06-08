@@ -191,6 +191,42 @@ const surveyBundle = {
           });
     }
     ,
+    //POST (upsert) a survey member at /api/survey/:surveyid/member. Resolves the username to a userId against the loaded roster, then persists the membership (and owner flag) server-side so surveyors added to an existing survey actually get a survey_member row — otherwise the server's per-user /api/surveys query never returns the survey to them. The endpoint is an upsert keyed on (survey_id, user_id), so this also handles toggling the owner flag on an existing member. On success the in-memory survey's members/owners are updated to match.
+    doUpsertSurveyMember: (userName, isOwner = false, { onSuccess, onError } = {}) => ({ dispatch, apiPost, store }) => {
+      const survey = store.selectSurvey();
+      const surveyId = survey && survey.id;
+      if (!surveyId || !userName) {
+        const err = new Error("doUpsertSurveyMember requires a surveyId and userName");
+        console.error(err.message);
+        if (typeof onError === "function") onError(err);
+        return;
+      }
+      const roster = (store.selectMembers && store.selectMembers().list) || [];
+      const match = roster.find((u) => u.userName === userName);
+      const userId = match && match.userId;
+      if (!userId) {
+        const err = new Error(`No userId in roster for ${userName}`);
+        console.error(err.message);
+        if (typeof onError === "function") onError(err);
+        return;
+      }
+      apiPost(`/api/survey/${surveyId}/member`, { surveyId, userId, isOwner }, (err) => {
+        if (err) {
+          console.error(`Failed to upsert member ${userName} on survey ${surveyId}:`, err);
+          if (typeof onError === "function") onError(err);
+          return;
+        }
+        const members = (survey.members || []).includes(userName)
+          ? survey.members
+          : [...(survey.members || []), userName];
+        const currentOwners = survey.owners || [];
+        const owners = isOwner
+          ? (currentOwners.includes(userName) ? currentOwners : [...currentOwners, userName])
+          : currentOwners.filter((o) => o !== userName);
+        dispatch({ type: "UPDATE_SURVEY", payload: { members, owners } });
+        if (typeof onSuccess === "function") onSuccess(userId);
+      });
+    },
     //DELETE the member from a survey at /api/survey/:surveyid/member/:memberid. Resolves the username to a userId against the loaded roster; on success removes the member (and any matching owner entry) from the in-memory survey.
     doRemoveMemberFromSurvey: (userName, { onSuccess, onError } = {}) => ({ dispatch, apiDelete, store }) => {
       const survey = store.selectSurvey();

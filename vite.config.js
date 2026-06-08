@@ -16,6 +16,7 @@ export default defineConfig(({ mode }) => {
     tailwindcss(),
   ],
   server: {
+      allowedHosts: ['survey-tool.hecdev.net'],
       proxy: {
         '/api': {
           target: env.VITE_API_URL,
