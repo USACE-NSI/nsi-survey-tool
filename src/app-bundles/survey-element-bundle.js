@@ -363,11 +363,20 @@ const surveyElementBundle = {
           const areaSqFtValue = (areaMeters * 10.7639).toFixed(2); // Convert m² to sqft
           const updatedSurvey = {
             sq_ft: areaSqFtValue,
+            // A drawn area is always a valid number, so clear any stale invalid
+            // flag a prior empty/bad sq_ft entry may have left set. Without this
+            // sqFtInvalid sticks true and keeps survey_element_invalid true,
+            // blocking SUBMIT even though the value is fine.
+            sqFtInvalid: false,
           };
           dispatch({
             type: "SURVEY_LOADED",
             payload: { surveyElement: updatedSurvey }
           });
+          // Recompute commit-validity now that sq_ft changed via the map (this
+          // path bypasses the input's onBlur numberValidation that normally
+          // triggers it).
+          store.doSurveyElementInvalid();
           map.removeInteraction(draw);
           map.removeLayer(vector);//should we load the geometry into the survey data so that it can be stored?
         });
@@ -391,8 +400,15 @@ const surveyElementBundle = {
           payload: {surveyElement:{
             x: coord[0],
             y: coord[1],
+            // Map-picked coords are always valid numbers; clear any stale
+            // invalid flags so they don't keep survey_element_invalid true.
+            x_invalid: false,
+            y_invalid: false,
           }}
         })
+        // Recompute commit-validity — this path bypasses the input onBlur
+        // numberValidation that normally triggers it.
+        store.doSurveyElementInvalid();
         clearMapfunction(map, 'singleclick', locationFunction);
         locationFunction = null;
         //store.doSurveyDisplayMarker();
