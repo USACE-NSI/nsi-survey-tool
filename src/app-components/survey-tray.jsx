@@ -265,6 +265,7 @@ function SurveyTray() {
           }
           disabled={
             nsiPrefetching ||
+            surveyElement.isLoading ||
             surveyElement.fetchingAssignment ||
             surveyElement.awaitingSubmit
           }
@@ -272,7 +273,7 @@ function SurveyTray() {
           onClick={doSurveyFetchNext}
           style={{ padding: "2px" }}
         >
-          <i>{nsiPrefetching || surveyElement.fetchingAssignment ? "LOADING…" : "NEXT"}</i>
+          <i>{nsiPrefetching || surveyElement.isLoading || surveyElement.fetchingAssignment ? "LOADING…" : "NEXT"}</i>
         </Button>
         <Button
           title="Submit Survey Element"
