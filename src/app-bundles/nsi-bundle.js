@@ -73,29 +73,6 @@ const shuffle = (arr) => {
   return arr;
 };
 
-// Proportional allocation across strata using largest-remainder so the
-// per-stratum integer sizes sum to exactly the target total.
-const allocateSample = (strataSizes, total) => {
-  const N = Object.values(strataSizes).reduce((a, b) => a + b, 0);
-  if (!N || !total) {
-    return Object.fromEntries(Object.keys(strataSizes).map((k) => [k, 0]));
-  }
-  const raw = Object.entries(strataSizes).map(([k, n]) => {
-    const exact = (n / N) * total;
-    return { k, n, floor: Math.floor(exact), frac: exact - Math.floor(exact) };
-  });
-  let assigned = raw.reduce((s, r) => s + r.floor, 0);
-  let remaining = total - assigned;
-  raw.sort((a, b) => b.frac - a.frac);
-  for (let i = 0; i < raw.length && remaining > 0; i++) {
-    if (raw[i].floor < raw[i].n) {
-      raw[i].floor += 1;
-      remaining -= 1;
-    }
-  }
-  return Object.fromEntries(raw.map((r) => [r.k, Math.min(r.floor, r.n)]));
-};
-
 // Build the FeatureCollection POST body NSI expects from the survey's bare
 // Polygon/MultiPolygon perimeter. MultiPolygons expand into one Feature per
 // polygon.
@@ -120,8 +97,8 @@ const perimeterToFeatureCollection = (geometry) => {
 };
 
 // Stratify a FeatureCollection per the survey's residential/floodzone flags,
-// compute the Cochran sample size from confidence/margin/proportion, allocate
-// it across strata proportionally, and return survey.elements rows.
+// compute a Cochran sample size per stratum from confidence/margin/proportion
+// against each stratum's own population, and return survey.elements rows.
 const stratifiedSampleFromFeatures = (features, survey) => {
   const useResidential = !!survey.residentialStratification;
   const useFloodzone = !!survey.floodzoneStratification;
@@ -134,13 +111,20 @@ const stratifiedSampleFromFeatures = (features, survey) => {
   const stratumSizes = Object.fromEntries(
     Object.entries(byStratum).map(([k, v]) => [k, v.length]),
   );
-  const total = cochranSampleSize(
-    features.length,
-    survey.confidence,
-    survey.margin,
-    survey.proportion,
+  // Each stratum gets its own Cochran sample size computed from that stratum's
+  // population (with finite population correction). The overall sample is the
+  // sum of these, so adding strata increases the total sample size.
+  const allocation = Object.fromEntries(
+    Object.entries(stratumSizes).map(([k, size]) => [
+      k,
+      cochranSampleSize(
+        size,
+        survey.confidence,
+        survey.margin,
+        survey.proportion,
+      ),
+    ]),
   );
-  const allocation = allocateSample(stratumSizes, total);
 
   const elements = [];
   for (const [label, bucket] of Object.entries(byStratum)) {
