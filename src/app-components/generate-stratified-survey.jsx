@@ -69,6 +69,40 @@ export default function GenerateStratifiedSurvey() {
   const handleChecked = (field) => (e) => {
     doUpdateSurvey({ ...survey, [field]: e.target.checked });
   };
+
+  // Per-stratum proportion override. Stored as a label->proportion map on
+  // survey.strataProportions; strata without an entry fall back to
+  // survey.proportion in stratifiedSampleFromFeatures.
+  const handleStrataProportionChange = (label) => (e) => {
+    doUpdateSurvey({
+      ...survey,
+      strataProportions: {
+        ...(survey.strataProportions || {}),
+        [label]: Number(e.target.value),
+      },
+    });
+  };
+
+  // Strata rows depend on which stratification checkboxes are selected. Only
+  // shown when at least one is active (otherwise the survey-wide proportion
+  // applies).
+  const useResidential = survey.residentialStratification;
+  const useFloodzone = survey.floodzoneStratification;
+  let strata = [];
+  if (useResidential && useFloodzone) {
+    strata = [
+      "Residential no flood zone",
+      "Residential flood zone",
+      "Floodzone no residential",
+      "Other",
+    ];
+  } else if (useResidential) {
+    strata = ["Residential", "Other"];
+  } else if (useFloodzone) {
+    strata = ["Floodzone", "Other"];
+  }
+  const isStratified = strata.length > 0;
+
   return (
     <div className="gw-space-y-6">
       {/* 1. Inventory & Polygon Section */}
@@ -194,6 +228,50 @@ export default function GenerateStratifiedSurvey() {
           </select>
         </div>
       </div>
+
+      {/* 3b. Per-Strata Proportion Table */}
+      {isStratified && (
+        <div className="gw-border gw-border-slate-200 gw-rounded-lg gw-overflow-hidden">
+          <div className="gw-bg-slate-50 gw-px-4 gw-py-2 gw-border-b gw-border-slate-200 gw-flex gw-items-center gw-gap-1">
+            <span className="gw-text-xs gw-font-bold gw-text-slate-500 gw-uppercase">
+              Per-Strata Proportion
+            </span>
+            <HelpLink id="prop" />
+          </div>
+          <Table dense striped className="gw-w-full">
+            <TableHead>
+              <TableRow>
+                <TableHeader>Strata</TableHeader>
+                <TableHeader>Proportion</TableHeader>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {strata.map((label) => (
+                <TableRow key={label}>
+                  <TableCell className="gw-text-xs gw-font-mono">
+                    {label}
+                  </TableCell>
+                  <TableCell>
+                    <select
+                      className="gw-border gw-border-slate-300 gw-rounded-md gw-p-1 gw-bg-white gw-text-sm"
+                      value={
+                        survey.strataProportions?.[label] ?? survey.proportion
+                      }
+                      onChange={handleStrataProportionChange(label)}
+                    >
+                      {proportion.map((e) => (
+                        <option key={e.val} value={e.val}>
+                          {e.display}
+                        </option>
+                      ))}
+                    </select>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
       {/* Sample size display */}
       <div className="gw-bg-blue-50 gw-border gw-border-blue-100 gw-rounded-md gw-p-2 gw-text-center gw-w-fit">

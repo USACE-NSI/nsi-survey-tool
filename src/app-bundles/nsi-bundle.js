@@ -54,13 +54,20 @@ const floodzoneBucket = (firmzone) => {
   return "OTHER";
 };
 
+// Strata labels here must match the rows rendered in generate-stratified-survey
+// so survey.strataProportions keys line up with what the sampler assigns.
 const strataLabel = (feature, useResidential, useFloodzone) => {
   const props = (feature && feature.properties) || {};
+  const isResidential = residentialBucket(props.occtype) === "RES1";
+  const inFloodzone = floodzoneBucket(props.firmzone) !== "OTHER";
   if (useResidential && useFloodzone) {
-    return `${residentialBucket(props.occtype)} ${floodzoneBucket(props.firmzone)}`;
+    if (isResidential && inFloodzone) return "Residential flood zone";
+    if (isResidential) return "Residential no flood zone";
+    if (inFloodzone) return "Floodzone no residential";
+    return "Other";
   }
-  if (useResidential) return residentialBucket(props.occtype);
-  if (useFloodzone) return floodzoneBucket(props.firmzone);
+  if (useResidential) return isResidential ? "Residential" : "Other";
+  if (useFloodzone) return inFloodzone ? "Floodzone" : "Other";
   return "ALL";
 };
 
@@ -113,7 +120,10 @@ const stratifiedSampleFromFeatures = (features, survey) => {
   );
   // Each stratum gets its own Cochran sample size computed from that stratum's
   // population (with finite population correction). The overall sample is the
-  // sum of these, so adding strata increases the total sample size.
+  // sum of these, so adding strata increases the total sample size. Each stratum
+  // may carry its own proportion (survey.strataProportions[label]); when none is
+  // set we fall back to the survey-wide survey.proportion.
+  const strataProportions = survey.strataProportions || {};
   const allocation = Object.fromEntries(
     Object.entries(stratumSizes).map(([k, size]) => [
       k,
@@ -121,7 +131,7 @@ const stratifiedSampleFromFeatures = (features, survey) => {
         size,
         survey.confidence,
         survey.margin,
-        survey.proportion,
+        strataProportions[k] ?? survey.proportion,
       ),
     ]),
   );
