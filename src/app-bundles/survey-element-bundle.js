@@ -137,8 +137,23 @@ const surveyElementBundle = {
     doAutofillFromNsi: (surveyElement) => ({ dispatch, store }) => {
       const fdId = surveyElement && surveyElement.fd_id;
       if (fdId == null) return;
+      // Pin the survey this autofill belongs to. The NSI fetch is async, so if
+      // the surveyor switches surveys (or back to the dashboard) while it's in
+      // flight, the in-flight onSuccess would otherwise overwrite the new
+      // survey's element and zoom the map to the *previous* survey's structure.
+      // Bail on resolution if the active survey has changed underneath us.
+      const requestSurvey = store.selectSurvey();
+      const requestSurveyId = requestSurvey && requestSurvey.id;
       store.doFetchNsiStructure(fdId, {
         onSuccess: (nsi) => {
+          const activeSurvey = store.selectSurvey();
+          const activeSurveyId = activeSurvey && activeSurvey.id;
+          if (activeSurveyId !== requestSurveyId) {
+            console.log(
+              `doAutofillFromNsi: discarding stale NSI result for fd_id ${fdId} (survey ${requestSurveyId} → ${activeSurveyId})`,
+            );
+            return;
+          }
           // NSI may return either bare properties or a GeoJSON Feature.
           const props = (nsi && nsi.properties) || nsi || {};
           // Occtype is "<class>-<subtype>" (e.g. RES1-1SNB); the survey only cares about the class token.

@@ -348,13 +348,38 @@ export default function MapComponent() {
     source.addFeatures(features);
     const extent = source.getExtent();
     if (!extent || extent.some((v) => !Number.isFinite(v))) return;
-    // fit is animated; the existing moveend handler syncs center/zoom back into the map bundle when the animation completes.
-    map.getView().fit(extent, {
-      size: map.getSize(),
-      padding: [40, 40, 40, 40],
-      duration: 300,
-      maxZoom: 18,
-    });
+
+    // Reframe the view to the study-area bounding box. This is the first half
+    // of the open-survey workflow: fit the perimeter here, then
+    // doAutofillFromNsi zooms in on the first structure. fit is animated; the
+    // moveend handler syncs the resulting center/zoom back into the map bundle.
+    //
+    // When a survey is opened, the perimeter can land before the map container
+    // has been laid out (e.g. a fast local fetch resolving in the same frame as
+    // the mount). At that point map.getSize() is undefined and fit() silently
+    // no-ops, leaving the view parked on the *previous* survey's last
+    // structure. Defer to the next rendercomplete (when the map has a size) so
+    // the reframe always happens.
+    let cancelled = false;
+    const fitToPerimeter = () => {
+      if (cancelled) return;
+      const size = map.getSize();
+      if (!size || !size[0] || !size[1]) {
+        map.once("rendercomplete", fitToPerimeter);
+        return;
+      }
+      map.getView().fit(extent, {
+        size,
+        padding: [40, 40, 40, 40],
+        duration: 300,
+        maxZoom: 18,
+      });
+    };
+    fitToPerimeter();
+    return () => {
+      cancelled = true;
+      map.un("rendercomplete", fitToPerimeter);
+    };
   }, [mapPerimeter]);
 
   // Mark the active survey assignment with a Point on the dedicated
