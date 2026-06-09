@@ -48,7 +48,7 @@ const surveyBundle = {
          percentControlStructures: 0.01,
          perimeterGeometry: null,//stringified GeoJSON (EPSG:4326) uploaded via UploadPolygon; posted as perimeter_geom on the server Survey struct.
          elements: [],//for loading and validating... i do not think this list of elements should be in memory for long ideally we would validate and post to the database. @TODO address this.
-         percentComplete:0.50,
+         percentComplete:0.00,
          results:[]//for display in charts... i do not think this will be preserved in memory so clearing this when the user leaves results viewing would be good. or supporting the specific calls for results via the api would be nice @TODO address this.
         };
       return (state = initialState, { type, payload }) => {
@@ -79,7 +79,7 @@ const surveyBundle = {
          percentControlStructures: 0.01,
          perimeterGeometry: null,
          elements: [],
-         percentComplete:0.50,
+         percentComplete:0.00,
          results:[]//for display in charts...
         };
         dispatch({
