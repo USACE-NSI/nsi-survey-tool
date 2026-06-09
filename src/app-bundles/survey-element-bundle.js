@@ -53,6 +53,20 @@ const defaultSurvey = {
   // disabled so a second click can't discard the surveyor's unsaved entries.
   // Cleared by SUBMIT (which advances on its own) and by PREVIOUS.
   awaitingSubmit: false,
+  // Set when the server has no assignment to hand out ({"result":"completed"}
+  // from /survey/:id/assignment). The tray uses this to disable NEXT and show
+  // a message instead of leaving an enabled button that re-fetches "completed"
+  // on every click. Rides on defaultSurvey, so it clears automatically once a
+  // real assignment loads (...defaultSurvey, ...body) or a new survey is
+  // selected. NOTE: the server returns "completed" as a catch-all — it means
+  // "nothing assignable to you", NOT necessarily "everything is surveyed".
+  // noAssignment holds the disambiguated reason for the tray message:
+  //   "all-done"      every structure in the survey is already surveyed
+  //   "no-elements"   the survey has no structures at all (nothing to assign)
+  //   "none-available" structures exist but none are assignable to you
+  //   "" (default)    not in the no-assignment state
+  allCompleted: false,
+  noAssignment: "",
 }
 const surveyElementBundle = {
     name: 'surveyElement',
@@ -226,9 +240,27 @@ const surveyElementBundle = {
           return;
         }
         if (body.result === "completed") {
-          console.log(`doSurveyFetchNext: all assignments completed for survey ${surveyId}`);
+          // The server returns "completed" whenever it can't hand this surveyor
+          // an element — which is NOT the same as "every structure is surveyed".
+          // Disambiguate from the survey's own progress counts (loaded for the
+          // active-surveys progress bar; see active-surveys-bundle) so the tray
+          // can show an accurate message instead of falsely claiming completion.
+          const sv = store.selectSurvey() || {};
+          const total = sv.totalCount;
+          const done = sv.completedCount;
+          let noAssignment = "none-available";
+          if (total === 0) {
+            noAssignment = "no-elements";
+          } else if (total != null && done != null && done >= total) {
+            noAssignment = "all-done";
+          }
+          console.log(
+            `doSurveyFetchNext: server returned "completed" for survey ${surveyId} (reason: ${noAssignment}, completed ${done}/${total})`
+          );
           // defaultSurvey already has fetchingAssignment:false and atFirst:false.
-          dispatch({ type: "SURVEY_LOADED", payload: { surveyElement: { ...defaultSurvey } } });
+          // allCompleted gives the tray something to disable NEXT on and show a
+          // message, so the button doesn't sit enabled re-fetching "completed".
+          dispatch({ type: "SURVEY_LOADED", payload: { surveyElement: { ...defaultSurvey, allCompleted: true, noAssignment } } });
           return;
         }
         // Reset transient/edit state by starting from defaultSurvey (which clears fetchingAssignment + atFirst), then overlay whatever the server returned (saId, fdId, x, y, occupancyType, damcat, ...).

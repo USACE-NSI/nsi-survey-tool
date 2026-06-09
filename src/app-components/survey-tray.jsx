@@ -259,6 +259,12 @@ function SurveyTray() {
               ? "Loading NSI structures…"
               : surveyElement.fetchingAssignment
               ? "Loading…"
+              : surveyElement.allCompleted
+              ? surveyElement.noAssignment === "all-done"
+                ? "All structures in this survey have been surveyed"
+                : surveyElement.noAssignment === "no-elements"
+                ? "This survey has no structures to assign"
+                : "No structures are currently assignable to you"
               : surveyElement.awaitingSubmit
               ? "Submit this element or go to the previous one before loading the next"
               : "Get Next Survey Element"
@@ -267,7 +273,8 @@ function SurveyTray() {
             nsiPrefetching ||
             surveyElement.isLoading ||
             surveyElement.fetchingAssignment ||
-            surveyElement.awaitingSubmit
+            surveyElement.awaitingSubmit ||
+            surveyElement.allCompleted
           }
           className="btn btn-secondary basic-toolbar-btn st-btn-tb1"
           onClick={doSurveyFetchNext}
@@ -310,6 +317,12 @@ function SurveyTray() {
         >
           {surveyElement.isLoading || nsiPrefetching
             ? "Loading assignment…"
+            : surveyElement.allCompleted
+            ? surveyElement.noAssignment === "all-done"
+              ? "All structures in this survey have been surveyed."
+              : surveyElement.noAssignment === "no-elements"
+              ? "This survey has no structures to assign — check that generation/save succeeded."
+              : "No structures are currently assignable to you."
             : "No assignment loaded."}
         </div>
       )}

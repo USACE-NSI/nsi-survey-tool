@@ -159,7 +159,7 @@ export default function GenerateStratifiedSurvey() {
       </div>
 
       {/* 3. Statistical Parameters Grid */}
-      <div className="gw-grid gw-grid-cols-1 md:gw-grid-cols-4 gw-gap-4 gw-items-end">
+      <div className="gw-grid gw-grid-cols-1 md:gw-grid-cols-3 gw-gap-4 gw-items-end">
         <div className="gw-flex gw-flex-col gw-gap-2">
           <label className="gw-font-semibold gw-text-xs gw-text-slate-500 gw-uppercase">
             Confidence <HelpLink id="confidence" title="Help for confidence" />
@@ -187,23 +187,6 @@ export default function GenerateStratifiedSurvey() {
             onChange={handleNumberChange("margin")}
           >
             {margin.map((e) => (
-              <option key={e.val} value={e.val}>
-                {e.display}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="gw-flex gw-flex-col gw-gap-2">
-          <label className="gw-font-semibold gw-text-xs gw-text-slate-500 gw-uppercase">
-            Proportion <HelpLink id="prop" />
-          </label>
-          <select
-            className="gw-border gw-border-slate-300 gw-rounded-md gw-p-2 gw-bg-white gw-text-sm"
-            value={survey.proportion}
-            onChange={handleNumberChange("proportion")}
-          >
-            {proportion.map((e) => (
               <option key={e.val} value={e.val}>
                 {e.display}
               </option>
@@ -253,7 +236,7 @@ export default function GenerateStratifiedSurvey() {
                   </TableCell>
                   <TableCell>
                     <select
-                      className="gw-border gw-border-slate-300 gw-rounded-md gw-p-1 gw-bg-white gw-text-sm"
+                      className="gw-w-full gw-border gw-border-slate-300 gw-rounded-md gw-p-1 gw-bg-white gw-text-sm"
                       value={
                         survey.strataProportions?.[label] ?? survey.proportion
                       }
