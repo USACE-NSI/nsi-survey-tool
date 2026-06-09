@@ -46,7 +46,7 @@ export default function GenerateStratifiedSurvey() {
   const proportion = [
     { val: 0.5, display: "50%" },
     { val: 0.25, display: "25%" },
-    { val: 0.75, display: "75%" },
+    { val: 0.9, display: "90%" },
   ];
   const percentControl = [
     { val: 0.01, display: "1%" },
