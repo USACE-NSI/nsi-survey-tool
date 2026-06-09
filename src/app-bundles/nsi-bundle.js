@@ -158,6 +158,12 @@ const stratifiedSampleFromFeatures = (features, survey) => {
       elements[indices[i]].control = true;
     }
   }
+  // Post-process: the first 10 elements are always control, on top of whatever
+  // the user's percent-based assignment selected above.
+  const forcedControl = Math.min(elements.length, 10);
+  for (let i = 0; i < forcedControl; i++) {
+    elements[i].control = true;
+  }
   return elements;
 };
 
