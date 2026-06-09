@@ -375,6 +375,7 @@ const surveyBundle = {
           stratification_type: stratificationType,
           margin: Number(payload.margin),
           proportion: Number(payload.proportion),
+          proportions: payload.strataProportions || {},
           confidence: Number(payload.confidence),
           pct_control: Number(payload.percentControlStructures),
           sample_size: Number(payload.sampleSize),
@@ -402,6 +403,9 @@ const surveyBundle = {
       // Translate UI shape -> server Survey struct (title/active/inventory_source/stratification).
       // Stratification floats are coerced because <select> stores them as strings on change,
       // and the server's StratificationInfo binds these as float64 — a string here is a 400.
+      // proportions is the per-strata { label -> proportion } map (survey.strataProportions);
+      // it persists to the survey.proportions jsonb column. survey-wide proportion remains the
+      // fallback for strata without an explicit override (see stratifiedSampleFromFeatures).
       const body = {
         title: payload.name,
         description: payload.description,
@@ -413,6 +417,7 @@ const surveyBundle = {
           stratification_type: stratificationType,
           margin: Number(payload.margin),
           proportion: Number(payload.proportion),
+          proportions: payload.strataProportions || {},
           confidence: Number(payload.confidence),
           pct_control: Number(payload.percentControlStructures),
           sample_size: Number(payload.sampleSize),

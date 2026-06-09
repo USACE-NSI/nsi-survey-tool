@@ -77,15 +77,23 @@ const activeSurveysBundle = {
         }
         // Map server shape (title/active/inventory_source/due_date) onto the UI shape (name/completed/inventorySource/dueDate) so existing components keep working.
         // Strip perimeter_geom so list rows don't carry geometry — the server still returns it from user-surveys/admin-surveys, and the survey bundle hydrates it via doSelectSurvey when a row is opened.
+        // Hydrate the per-strata proportion map back into survey.strataProportions (the UI shape
+        // written by the Per-Strata Proportion table). The server returns it under the nested
+        // stratification object (symmetric with the create/update body), but fall back to a
+        // top-level proportions key in case the response is flattened. doSelectSurvey merges these
+        // rows into the survey bundle, so this is where the per-strata edits re-populate on open.
         const surveys = (Array.isArray(body) ? body : []).map((row) => {
-          const { title, active, inventory_source, due_date, ...rest } = row;
+          const { title, active, inventory_source, due_date, proportions, stratification, ...rest } = row;
           delete rest.perimeter_geom;
+          const strataProportions =
+            (stratification && stratification.proportions) || proportions || {};
           return {
             ...rest,
             name: title,
             completed: !active,
             dueDate: due_date,
             inventorySource: inventory_source,
+            strataProportions,
             owners: [],
             members: [],
           };
