@@ -62,6 +62,8 @@ const surveyBundle = {
     doCreateNewSurvey: () => ({dispatch}) =>{
       const initialState = {
         id: generateGuid(),
+        // Not yet persisted server-side: member edits are staged in state until create.
+        isNew: true,
         name: "",
         description: "",
          dueDate: "2028-12-12",
@@ -115,9 +117,10 @@ const surveyBundle = {
         dispatch({ type: "SURVEY_LOADED", payload: { surveyElement: { isLoading: true } } });
       }
       // Clear any stale geometry and NSI cache from a previously selected survey while the fetch is in flight.
+      // This survey exists server-side, so isNew is false — member edits persist immediately.
       dispatch({
         type: "UPDATE_SURVEY",
-        payload: { ...surveyData, perimeterGeometry: null },
+        payload: { ...surveyData, perimeterGeometry: null, isNew: false },
       });
       if (store && store.doSetMapPerimeter) store.doSetMapPerimeter(null);
       dispatch({ type: "NSI_PREFETCH_CLEAR" });
@@ -213,11 +216,17 @@ const surveyBundle = {
         dispatch({ type: "UPDATE_SURVEY", payload: { elements } });
       });
     },
+    // Begin a brand-new survey: a fresh client GUID and isNew=true. isNew is the
+    // bundle's record that the survey does not exist server-side yet, so member
+    // changes must be staged in state (see doUpsertSurveyMember/doRemoveMemberFromSurvey)
+    // rather than POSTed to /api/survey/:id/member — that endpoint 401s until the
+    // survey exists and the caller is one of its owners. doPostNewSurvey clears the
+    // flag and persists the staged roster once the survey is created.
     doUpdateSurveyGUID: () => ({dispatch})=>{
         console.log("dispatching update guid")
         dispatch({
             type: "UPDATE_SURVEY",
-            payload: {id:generateGuid()}
+            payload: {id:generateGuid(), isNew: true}
           });
     }
     ,
@@ -229,6 +238,20 @@ const surveyBundle = {
         const err = new Error("doUpsertSurveyMember requires a surveyId and userName");
         console.error(err.message);
         if (typeof onError === "function") onError(err);
+        return;
+      }
+      // Unsaved survey: stage the membership/owner flag in state only. The full
+      // roster is persisted by doPostNewSurvey after the survey exists server-side.
+      if (survey.isNew) {
+        const members = (survey.members || []).includes(userName)
+          ? survey.members
+          : [...(survey.members || []), userName];
+        const currentOwners = survey.owners || [];
+        const owners = isOwner
+          ? (currentOwners.includes(userName) ? currentOwners : [...currentOwners, userName])
+          : currentOwners.filter((o) => o !== userName);
+        dispatch({ type: "UPDATE_SURVEY", payload: { members, owners } });
+        if (typeof onSuccess === "function") onSuccess();
         return;
       }
       const roster = (store.selectMembers && store.selectMembers().list) || [];
@@ -265,6 +288,18 @@ const surveyBundle = {
         const err = new Error("doRemoveMemberFromSurvey requires a surveyId and userName");
         console.error(err.message);
         if (typeof onError === "function") onError(err);
+        return;
+      }
+      // Unsaved survey: there is no server-side row to delete; just drop it from state.
+      if (survey.isNew) {
+        dispatch({
+          type: "UPDATE_SURVEY",
+          payload: {
+            members: (survey.members || []).filter((m) => m !== userName),
+            owners: (survey.owners || []).filter((o) => o !== userName),
+          },
+        });
+        if (typeof onSuccess === "function") onSuccess();
         return;
       }
       const roster = (store.selectMembers && store.selectMembers().list) || [];
@@ -390,7 +425,8 @@ const surveyBundle = {
           return;
         }
         const serverId = resp && resp.surveyId;
-        const created = serverId ? { ...payload, id: serverId } : payload;
+        // Survey now exists server-side: drop isNew so subsequent member edits persist.
+        const created = serverId ? { ...payload, id: serverId, isNew: false } : { ...payload, isNew: false };
         dispatch({ type: "UPDATE_SURVEY", payload: created });
         store.doAddSurvey(created);
 

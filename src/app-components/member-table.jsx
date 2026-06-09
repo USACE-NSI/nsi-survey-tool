@@ -19,7 +19,8 @@ export default function MemberTable() {
 
   const handleAddMember = (memberName) => {
     if (memberName && !survey.members?.includes(memberName)) {
-      // Persist the membership immediately. A new surveyor is not an owner.
+      // A new surveyor is not an owner. For an unsaved survey the bundle stages
+      // this in state; for an existing one it persists immediately.
       doUpsertSurveyMember(memberName, false);
     }
   };
@@ -28,7 +29,8 @@ export default function MemberTable() {
     doRemoveMemberFromSurvey(memberName);
   };
 
-  // Toggle the owner flag for an existing member, persisting it via the same upsert endpoint.
+  // Toggle the owner flag for a member. The bundle decides whether to persist
+  // immediately or stage it, based on whether the survey exists server-side yet.
   const handleToggleOwner = (memberName) => {
     const isOwner = !(survey.owners || []).includes(memberName);
     doUpsertSurveyMember(memberName, isOwner);
