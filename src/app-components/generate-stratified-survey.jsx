@@ -233,6 +233,7 @@ export default function GenerateStratifiedSurvey() {
             </span>
             <HelpLink
               id="prop"
+              placement="bottom"
               title="Per-strata proportion — the fraction of each stratum's structures to include in the sample. A higher proportion draws more structures from that stratum, letting you oversample groups of interest; strata left unset fall back to the default proportion."
             />
           </div>
