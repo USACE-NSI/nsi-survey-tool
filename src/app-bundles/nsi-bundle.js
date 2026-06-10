@@ -105,7 +105,9 @@ const perimeterToFeatureCollection = (geometry) => {
 
 // Stratify a FeatureCollection per the survey's residential/floodzone flags,
 // compute a Cochran sample size per stratum from confidence/margin/proportion
-// against each stratum's own population, and return survey.elements rows.
+// against each stratum's own population, and return the survey.elements rows
+// plus the per-stratum sample sizes (label -> count) so the UI can surface the
+// allocation that produced the sample.
 const stratifiedSampleFromFeatures = (features, survey) => {
   const useResidential = !!survey.residentialStratification;
   const useFloodzone = !!survey.floodzoneStratification;
@@ -122,7 +124,7 @@ const stratifiedSampleFromFeatures = (features, survey) => {
   // population (with finite population correction). The overall sample is the
   // sum of these, so adding strata increases the total sample size. Each stratum
   // may carry its own proportion (survey.strataProportions[label]); when none is
-  // set we fall back to the survey-wide survey.proportion.
+  // set we fall back to survey.defaultProportion (UI-only default; not persisted).
   const strataProportions = survey.strataProportions || {};
   const allocation = Object.fromEntries(
     Object.entries(stratumSizes).map(([k, size]) => [
@@ -131,7 +133,7 @@ const stratifiedSampleFromFeatures = (features, survey) => {
         size,
         survey.confidence,
         survey.margin,
-        strataProportions[k] ?? survey.proportion,
+        strataProportions[k] ?? survey.defaultProportion,
       ),
     ]),
   );
@@ -164,7 +166,7 @@ const stratifiedSampleFromFeatures = (features, survey) => {
   for (let i = 0; i < forcedControl; i++) {
     elements[i].control = true;
   }
-  return elements;
+  return { elements, strataSampleSizes: allocation };
 };
 
 const nsiBundle = {
@@ -245,11 +247,15 @@ const nsiBundle = {
           const features = (fc && fc.features) || [];
           // Re-read the survey in case it changed during the fetch.
           const current = store.selectSurvey();
-          const elements = stratifiedSampleFromFeatures(features, current);
+          const { elements, strataSampleSizes } = stratifiedSampleFromFeatures(
+            features,
+            current,
+          );
           store.doUpdateSurvey({
             ...current,
             elements,
             sampleSize: elements.length,
+            strataSampleSizes,
           });
           dispatch({ type: "NSI_FETCH_FINISH" });
           if (typeof onSuccess === "function") onSuccess(elements);

@@ -43,8 +43,12 @@ const surveyBundle = {
          floodzoneStratification: false,
          confidence: 0.95,
          margin: 0.05,
-         proportion: 0.50,
+         defaultProportion: 0.50,
          sampleSize: 0,
+         // Per-stratum sample sizes (label -> count) computed when the user
+         // clicks "Generate Stratified Survey". UI-only (not persisted); strata
+         // without an entry render as 0. See doGenerateNsiStratifiedSurvey.
+         strataSampleSizes: {},
          percentControlStructures: 0.01,
          perimeterGeometry: null,//stringified GeoJSON (EPSG:4326) uploaded via UploadPolygon; posted as perimeter_geom on the server Survey struct.
          elements: [],//for loading and validating... i do not think this list of elements should be in memory for long ideally we would validate and post to the database. @TODO address this.
@@ -76,8 +80,12 @@ const surveyBundle = {
          floodzoneStratification: false,
          confidence: 0.95,
          margin: 0.05,
-         proportion: 0.50,
+         defaultProportion: 0.50,
          sampleSize: 0,
+         // Per-stratum sample sizes (label -> count) computed when the user
+         // clicks "Generate Stratified Survey". UI-only (not persisted); strata
+         // without an entry render as 0. See doGenerateNsiStratifiedSurvey.
+         strataSampleSizes: {},
          percentControlStructures: 0.01,
          perimeterGeometry: null,
          elements: [],
@@ -374,7 +382,7 @@ const surveyBundle = {
         stratification: {
           stratification_type: stratificationType,
           margin: Number(payload.margin),
-          proportion: Number(payload.proportion),
+          defaultProportion: Number(payload.defaultProportion),
           proportions: payload.strataProportions || {},
           confidence: Number(payload.confidence),
           pct_control: Number(payload.percentControlStructures),
@@ -404,8 +412,9 @@ const surveyBundle = {
       // Stratification floats are coerced because <select> stores them as strings on change,
       // and the server's StratificationInfo binds these as float64 — a string here is a 400.
       // proportions is the per-strata { label -> proportion } map (survey.strataProportions);
-      // it persists to the survey.proportions jsonb column. survey-wide proportion remains the
-      // fallback for strata without an explicit override (see stratifiedSampleFromFeatures).
+      // it persists to the survey.proportions jsonb column. survey.defaultProportion is a
+      // UI-only default (the fallback for strata without an explicit override; see
+      // stratifiedSampleFromFeatures) — the API/database ignore it, so it's dropped silently.
       const body = {
         title: payload.name,
         description: payload.description,
@@ -416,7 +425,7 @@ const surveyBundle = {
         stratification: {
           stratification_type: stratificationType,
           margin: Number(payload.margin),
-          proportion: Number(payload.proportion),
+          defaultProportion: Number(payload.defaultProportion),
           proportions: payload.strataProportions || {},
           confidence: Number(payload.confidence),
           pct_control: Number(payload.percentControlStructures),

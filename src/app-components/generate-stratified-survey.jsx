@@ -72,7 +72,7 @@ export default function GenerateStratifiedSurvey() {
 
   // Per-stratum proportion override. Stored as a label->proportion map on
   // survey.strataProportions; strata without an entry fall back to
-  // survey.proportion in stratifiedSampleFromFeatures.
+  // survey.defaultProportion in stratifiedSampleFromFeatures.
   const handleStrataProportionChange = (label) => (e) => {
     doUpdateSurvey({
       ...survey,
@@ -226,6 +226,7 @@ export default function GenerateStratifiedSurvey() {
               <TableRow>
                 <TableHeader>Strata</TableHeader>
                 <TableHeader>Proportion</TableHeader>
+                <TableHeader>Sample Size</TableHeader>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -238,7 +239,8 @@ export default function GenerateStratifiedSurvey() {
                     <select
                       className="gw-w-full gw-border gw-border-slate-300 gw-rounded-md gw-p-1 gw-bg-white gw-text-sm"
                       value={
-                        survey.strataProportions?.[label] ?? survey.proportion
+                        survey.strataProportions?.[label] ??
+                        survey.defaultProportion
                       }
                       onChange={handleStrataProportionChange(label)}
                     >
@@ -248,6 +250,11 @@ export default function GenerateStratifiedSurvey() {
                         </option>
                       ))}
                     </select>
+                  </TableCell>
+                  {/* Per-stratum sample size from the survey bundle; 0 until the
+                      Generate button populates survey.strataSampleSizes. */}
+                  <TableCell className="gw-text-xs gw-font-mono">
+                    {survey.strataSampleSizes?.[label] ?? 0}
                   </TableCell>
                 </TableRow>
               ))}
