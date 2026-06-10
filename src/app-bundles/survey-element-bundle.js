@@ -321,6 +321,12 @@ const surveyElementBundle = {
           type: "SURVEY_LOADED",
           payload: { surveyElement: { ...defaultSurvey, ...body } },
         });
+        // Stepping backward invalidates the "X of Y" progress readout: control
+        // structures are surveyed by multiple surveyors, so once we move off the
+        // forward edge we can't cheaply know which ordinal this element is. Show
+        // "*" for the completed count until the next submit calls
+        // doRefreshSurveyProgress and replaces it with a real number again.
+        dispatch({ type: "UPDATE_SURVEY", payload: { completedCount: "*" } });
         if (body.fdId != null) {
           store.doAutofillFromNsi({ fd_id: body.fdId });
         } else {
@@ -369,6 +375,13 @@ const surveyElementBundle = {
           return;
         }
         store.doSurveyFetchNext();
+        // Re-pull progress so the tray's "X of Y" reflects this submission (and
+        // any submitted by other surveyors since the list loaded). The counts
+        // live on the survey object; nothing else updates them mid-survey.
+        // @TODO fix this - add api call to fetch completed count outside of the
+        // report generation workflow (doRefreshSurveyProgress currently parses
+        // the whole report CSV just to count completed structures).
+        if (store.doRefreshSurveyProgress) store.doRefreshSurveyProgress(surveyId);
       });
     },
     doSurveyNext:()=>({store})=>{

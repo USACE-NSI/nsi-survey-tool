@@ -158,6 +158,7 @@ const roofStyles = [
 
 function SurveyTray() {
   const {
+    survey,
     surveyElement,
     nsiPrefetching,
     doSurveyStreetView,
@@ -170,6 +171,7 @@ function SurveyTray() {
     doSurveyElementInvalid,
     doSurveyDrawSqft,
   } = useConnect(
+    "selectSurvey",
     "selectSurveyElement",
     "selectNsiPrefetching",
     "doSurveyStreetView",
@@ -302,7 +304,26 @@ function SurveyTray() {
           marginTop: "5px",
         }}
       >
+        Survey Name: {survey?.name || "—"}
+      </div>
+      <div
+        style={{
+          width: "100%",
+          textAlign: "center",
+          fontSize: "14px",
+          fontWeight: "bold",
+        }}
+      >
         Structure ID: {surveyReady ? surveyElement.fdId : "—"}
+      </div>
+      <div
+        style={{
+          width: "100%",
+          textAlign: "center",
+          fontSize: "12px",
+        }}
+      >
+        {`${survey?.completedCount ?? 0} of ${survey?.totalCount ?? 0}`}
       </div>
       {!surveyReady && (
         <div

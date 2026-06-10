@@ -2,6 +2,10 @@
 //@TODO make api call to create new surveys? make api call to post a survey or edits to a survey.
 //@TODO add an api call to post surveyElements from csv.
 import Papa from "papaparse";
+// Shared with active-surveys-bundle so the tray's progress refresh dedupes
+// completed structures (control structures appear on multiple surveyors' rows)
+// exactly the same way the active-surveys progress bar does.
+import { countCompletedStructures } from "./active-surveys-bundle";
 //a function to generate a guid. this could be a database behavior in the future. i needed it for identification of unique surveys in lists so i had to do something in the interum.
 function generateGuid() {
   var d = new Date().getTime(); // Timestamp
@@ -223,6 +227,55 @@ const surveyBundle = {
         const elements = Array.isArray(body) ? body : [];
         dispatch({ type: "UPDATE_SURVEY", payload: { elements } });
       });
+    },
+    // Re-derive completedCount/totalCount for the currently selected survey and
+    // merge them onto the survey so the tray's progress readout reflects the
+    // latest server state — including structures other surveyors submitted
+    // asynchronously since the active-surveys list was last fetched. This mirrors
+    // the per-survey progress computation in active-surveys-bundle (elements for
+    // the total, deduped completed rows from the report for the numerator).
+    //
+    // @TODO fix this - add api call to fetch completed count outside of the
+    // report generation workflow. Pulling and parsing the entire report CSV just
+    // to count completed structures is wasteful; a dedicated count endpoint
+    // (e.g. GET /api/survey/:id/progress returning {completedCount, totalCount})
+    // would avoid shipping every row on each refresh.
+    doRefreshSurveyProgress: (surveyId) => ({ dispatch, apiGet, apiFetch, store }) => {
+      const targetId = surveyId || (store.selectSurvey() && store.selectSurvey().id);
+      if (!targetId) {
+        console.warn("doRefreshSurveyProgress: no surveyId");
+        return;
+      }
+      let total = null;
+      let completed = null;
+      // Only dispatch once both the total (elements) and the numerator (report)
+      // have resolved, so the readout never flashes a half-updated count.
+      const dispatchProgress = () => {
+        if (total === null || completed === null) return;
+        const percentComplete = total > 0 ? Math.min(1, completed / total) : 0;
+        dispatch({
+          type: "UPDATE_SURVEY",
+          payload: { completedCount: completed, totalCount: total, percentComplete },
+        });
+      };
+      apiGet(`/api/survey/${targetId}/elements`, (err, body) => {
+        if (err) {
+          console.error(`doRefreshSurveyProgress: failed to fetch elements for survey ${targetId}:`, err);
+        }
+        total = Array.isArray(body) ? body.length : 0;
+        dispatchProgress();
+      });
+      apiFetch(`/api/survey/${targetId}/report`)
+        .then((resp) => (resp.ok ? resp.text() : ""))
+        .then((csv) => {
+          completed = csv ? countCompletedStructures(csv) : 0;
+          dispatchProgress();
+        })
+        .catch((err) => {
+          console.error(`doRefreshSurveyProgress: failed to fetch report for survey ${targetId}:`, err);
+          completed = 0;
+          dispatchProgress();
+        });
     },
     // Begin a brand-new survey: a fresh client GUID and isNew=true. isNew is the
     // bundle's record that the survey does not exist server-side yet, so member

@@ -6,7 +6,7 @@ import Papa from "papaparse";
 // (server handler GetSurveyReport). The report carries one row per surveyed
 // assignment with a `completed` flag; control structures can be surveyed by
 // more than one surveyor, so we dedupe on fdId to count structures, not rows.
-const countCompletedStructures = (csv) => {
+export const countCompletedStructures = (csv) => {
   const toBool = (val) => {
     if (typeof val === "boolean") return val;
     if (val === undefined || val === null) return false;
