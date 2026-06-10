@@ -229,7 +229,7 @@ function SurveyTray() {
     doSurveyElementInvalid();
   };
   return (
-    <div>
+    <div style={{ height: "83vh", overflowY: "auto" }}>
       <div style={{ padding: "5px", gap: "5px", display: "flex" }}>
         <Button
           title={

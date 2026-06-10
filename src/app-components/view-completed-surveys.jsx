@@ -89,12 +89,11 @@ export default function ViewCompletedSurveys() {
                     <span className="gw-font-bold gw-text-slate-800">
                       {item.name}
                     </span>
-                    <span className="gw-text-xs gw-text-slate-500">
-                      Owners:{" "}
-                      {item.owners?.length > 0
-                        ? item.owners.join(", ")
-                        : "No owners assigned"}
-                    </span>
+                    {item.owners?.length > 0 && (
+                      <span className="gw-text-xs gw-text-slate-500">
+                        Owners: {item.owners.join(", ")}
+                      </span>
+                    )}
                   </div>
                 </TableCell>
 

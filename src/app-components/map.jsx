@@ -230,7 +230,12 @@ export default function MapComponent() {
         }),
       ]),
       //overlays: [overlay],
-      layers: [...Object.values(basemapLayers), perimeterLayer, vtLayer, selectedLayer],
+      layers: [
+        ...Object.values(basemapLayers),
+        perimeterLayer,
+        vtLayer,
+        selectedLayer,
+      ],
       view: new View({
         center: fromLonLat(mapCenter),
         zoom: mapZoom,
@@ -393,7 +398,13 @@ export default function MapComponent() {
     const x = surveyElement && Number(surveyElement.x);
     const y = surveyElement && Number(surveyElement.y);
     const fdId = surveyElement && surveyElement.fdId;
-    if (!Number.isFinite(x) || !Number.isFinite(y) || fdId == null || fdId === -1) return;
+    if (
+      !Number.isFinite(x) ||
+      !Number.isFinite(y) ||
+      fdId == null ||
+      fdId === -1
+    )
+      return;
     const feature = new Feature({ geometry: new Point(fromLonLat([x, y])) });
     source.addFeature(feature);
   }, [surveyElement?.x, surveyElement?.y, surveyElement?.fdId]);

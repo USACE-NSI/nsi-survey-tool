@@ -38,7 +38,7 @@ export default function Survey() {
   return (
     <div className="gw-flex gw-h-screen">
       <div
-        style={{ width: `${trayWidth}px`, position: "relative" }}
+        style={{ width: `${trayWidth}px`, height: "83vh", position: "relative" }}
         className="gw-flex-none gw-border-r"
       >
         <SurveyTray />
