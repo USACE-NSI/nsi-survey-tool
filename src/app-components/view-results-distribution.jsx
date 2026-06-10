@@ -64,19 +64,37 @@ export default function ViewResultsDistribution() {
 
   const dataPoints = mode === "cdf" ? getCDFData(values) : getPDFData(values);
 
-  const chartData = {
-    datasets: [
-      {
-        label: mode.toUpperCase(),
-        data: dataPoints,
-        borderColor: "rgb(54, 162, 235)",
-        backgroundColor: "rgba(54, 162, 235, 0.2)",
-        fill: true,
-        tension: 0.3,
-        pointRadius: 0,
-      },
-    ],
-  };
+  const mean = values.reduce((sum, v) => sum + v, 0) / values.length;
+  // Span the mean line across the full vertical range of the current plot.
+  const maxY =
+    mode === "cdf" ? 1 : Math.max(...dataPoints.map((p) => p.y));
+
+  const datasets = [
+    {
+      label: mode.toUpperCase(),
+      data: dataPoints,
+      borderColor: "rgb(54, 162, 235)",
+      backgroundColor: "rgba(54, 162, 235, 0.2)",
+      fill: true,
+      tension: 0.3,
+      pointRadius: 0,
+    },
+    {
+      label: `Mean (${mean.toFixed(2)})`,
+      data: [
+        { x: mean, y: 0 },
+        { x: mean, y: maxY },
+      ],
+      borderColor: "rgb(220, 53, 69)",
+      backgroundColor: "rgb(220, 53, 69)",
+      borderWidth: 2,
+      borderDash: [6, 4],
+      fill: false,
+      pointRadius: 0,
+    },
+  ];
+
+  const chartData = { datasets };
 
   return (
     <div style={{ height: "550px", width: "100%", padding: "20px" }}>
@@ -102,6 +120,12 @@ export default function ViewResultsDistribution() {
           options={{
             responsive: true,
             maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                display: true,
+                position: "top",
+              },
+            },
             scales: {
               y: {
                 title: {
