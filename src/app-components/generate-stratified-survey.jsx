@@ -162,7 +162,11 @@ export default function GenerateStratifiedSurvey() {
       <div className="gw-grid gw-grid-cols-1 md:gw-grid-cols-3 gw-gap-4 gw-items-end">
         <div className="gw-flex gw-flex-col gw-gap-2">
           <label className="gw-font-semibold gw-text-xs gw-text-slate-500 gw-uppercase">
-            Confidence <HelpLink id="confidence" title="Help for confidence" />
+            Confidence{" "}
+            <HelpLink
+              id="confidence"
+              title="Confidence level — the probability that the true population value falls within the chosen margin of error. Higher confidence (e.g. 95%) demands a larger sample to achieve the same margin, increasing the generated survey size."
+            />
           </label>
           <select
             className="gw-border gw-border-slate-300 gw-rounded-md gw-p-2 gw-bg-white gw-text-sm"
@@ -179,7 +183,11 @@ export default function GenerateStratifiedSurvey() {
 
         <div className="gw-flex gw-flex-col gw-gap-2">
           <label className="gw-font-semibold gw-text-xs gw-text-slate-500 gw-uppercase">
-            Margin <HelpLink id="margin" />
+            Margin{" "}
+            <HelpLink
+              id="margin"
+              title="Margin of error — the maximum acceptable difference between the sample estimate and the true population value. A tighter margin (e.g. 1%) requires a substantially larger sample, increasing the generated survey size; a looser margin (e.g. 5%) reduces it."
+            />
           </label>
           <select
             className="gw-border gw-border-slate-300 gw-rounded-md gw-p-2 gw-bg-white gw-text-sm"
@@ -196,7 +204,11 @@ export default function GenerateStratifiedSurvey() {
 
         <div className="gw-flex gw-flex-col gw-gap-2">
           <label className="gw-font-semibold gw-text-xs gw-text-slate-500 gw-uppercase">
-            % Control <HelpLink id="pct-control" />
+            % Control{" "}
+            <HelpLink
+              id="pct-control"
+              title="Percent control structures — the share of sampled structures flagged as control (verification) points. Raising this value sets aside a larger portion of the sample for control, used to validate the survey rather than contribute to the primary estimate."
+            />
           </label>
           <select
             className="gw-border gw-border-slate-300 gw-rounded-md gw-p-2 gw-bg-white gw-text-sm"
@@ -219,7 +231,10 @@ export default function GenerateStratifiedSurvey() {
             <span className="gw-text-xs gw-font-bold gw-text-slate-500 gw-uppercase">
               Per-Strata Proportion
             </span>
-            <HelpLink id="prop" />
+            <HelpLink
+              id="prop"
+              title="Per-strata proportion — the fraction of each stratum's structures to include in the sample. A higher proportion draws more structures from that stratum, letting you oversample groups of interest; strata left unset fall back to the default proportion."
+            />
           </div>
           <Table dense striped className="gw-w-full">
             <TableHead>
