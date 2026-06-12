@@ -490,8 +490,17 @@ const surveyBundle = {
           return;
         }
         const serverId = resp && resp.surveyId;
+        // Seed the progress fields so the active-surveys list row shows the real
+        // element count ("0 of N") right away instead of "0 of 0". The element
+        // count is known locally (it's what we POST below) and nothing is
+        // completed yet on a brand-new survey; a later /api/surveys refetch will
+        // recompute these from the /progress endpoint.
+        const totalCount = Array.isArray(payload.elements) ? payload.elements.length : 0;
+        const progressSeed = { completedCount: 0, totalCount, percentComplete: 0 };
         // Survey now exists server-side: drop isNew so subsequent member edits persist.
-        const created = serverId ? { ...payload, id: serverId, isNew: false } : { ...payload, isNew: false };
+        const created = serverId
+          ? { ...payload, id: serverId, isNew: false, ...progressSeed }
+          : { ...payload, isNew: false, ...progressSeed };
         dispatch({ type: "UPDATE_SURVEY", payload: created });
         store.doAddSurvey(created);
 
