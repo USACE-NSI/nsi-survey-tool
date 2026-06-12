@@ -16,10 +16,10 @@ const completedSurveysBundle = {
                 return {...state, fetching: true};
             case "SURVEYS_FETCH_FINISH":
                 return {...state, fetching: false, loaded: true, list: payload.completed};
-            case "SURVEY_MEMBERS_UPDATED": {
+            case "SURVEY_OWNERS_UPDATED": {
                 const list = state.list.map((s) =>
                     s.id === payload.surveyId
-                        ? { ...s, owners: payload.owners, members: payload.members }
+                        ? { ...s, owners: payload.owners }
                         : s
                 );
                 return { ...state, list };

@@ -1,26 +1,5 @@
 //the active surveys bundle manages a list of active surveys. it allows to add a survey to the state list. it is used in the completed surveys bundle to remove an active survey that is being updated as completed.
 //it also owns the shared fetch from /api/surveys, splitting the response into the active and completed lists in a single round trip.
-import Papa from "papaparse";
-
-// Count how many distinct structures are completed in a survey report CSV
-// (server handler GetSurveyReport). The report carries one row per surveyed
-// assignment with a `completed` flag; control structures can be surveyed by
-// more than one surveyor, so we dedupe on fdId to count structures, not rows.
-export const countCompletedStructures = (csv) => {
-  const toBool = (val) => {
-    if (typeof val === "boolean") return val;
-    if (val === undefined || val === null) return false;
-    return ["true", "1", "yes", "t", "y"].includes(String(val).toLowerCase().trim());
-  };
-  const parsed = Papa.parse(csv, { header: true, skipEmptyLines: true });
-  const completed = new Set();
-  for (const row of parsed.data || []) {
-    if (toBool(row.completed) && row.fdId != null && row.fdId !== "") {
-      completed.add(row.fdId);
-    }
-  }
-  return completed.size;
-};
 
 const activeSurveysBundle = {
     name: 'activeSurveys',
@@ -38,10 +17,10 @@ const activeSurveysBundle = {
                 return {...state, fetching: true};
             case "SURVEYS_FETCH_FINISH":
                 return {...state, fetching: false, loaded: true, list: payload.active};
-            case "SURVEY_MEMBERS_UPDATED": {
+            case "SURVEY_OWNERS_UPDATED": {
                 const list = state.list.map((s) =>
                     s.id === payload.surveyId
-                        ? { ...s, owners: payload.owners, members: payload.members }
+                        ? { ...s, owners: payload.owners }
                         : s
                 );
                 return { ...state, list };
@@ -67,7 +46,7 @@ const activeSurveysBundle = {
         return state;
       };
     },
-    doFetchSurveys: () => ({ dispatch, apiGet, apiFetch }) => {
+    doFetchSurveys: () => ({ dispatch, apiGet }) => {
       dispatch({ type: "SURVEYS_FETCH_START" });
       apiGet(`/api/surveys`, (err, body) => {
         if (err) {
@@ -101,30 +80,36 @@ const activeSurveysBundle = {
         const active = surveys.filter((s) => !s.completed);
         const completed = surveys.filter((s) => s.completed);
         dispatch({ type: "SURVEYS_FETCH_FINISH", payload: { active, completed } });
-        // Fan out per-survey member fetches so owners/members hydrate after the list renders.
+        // Fan out per-survey owner fetches so the "Owners" label and the
+        // owner-only manage controls hydrate after the list renders. Uses the
+        // public /owners endpoint (GetSurveyOwners), which any logged-in user can
+        // call — unlike /members, which requires owner/admin and would 401 for a
+        // regular surveyor, leaving them unable to see who owns a survey.
         surveys.forEach((s) => {
-          apiGet(`/api/survey/${s.id}/members`, (mErr, mBody) => {
-            if (mErr) {
-              console.error(`Failed to fetch members for survey ${s.id}:`, mErr);
+          apiGet(`/api/survey/${s.id}/owners`, (oErr, oBody) => {
+            if (oErr) {
+              console.error(`Failed to fetch owners for survey ${s.id}:`, oErr);
               return;
             }
-            const all = Array.isArray(mBody) ? mBody : [];
-            const owners = all.filter((m) => m.isOwner).map((m) => m.userName);
-            const members = all.map((m) => m.userName);
+            const owners = (Array.isArray(oBody) ? oBody : []).map((o) => o.userName);
             dispatch({
-              type: "SURVEY_MEMBERS_UPDATED",
-              payload: { surveyId: s.id, owners, members },
+              type: "SURVEY_OWNERS_UPDATED",
+              payload: { surveyId: s.id, owners },
             });
           });
         });
-        // Fan out per-active-survey progress: completed structures (from the
-        // report) over total structure elements (from /elements). The two
-        // requests run concurrently and the bar updates once both resolve.
+        // Fan out per-active-survey progress via the dedicated progress endpoint
+        // (server handler GetSurveyProgress), which returns the survey-wide
+        // deduped completed element count over the survey's total element count
+        // in a single round trip.
         active.forEach((s) => {
-          let total = null;
-          let completed = null;
-          const dispatchProgress = () => {
-            if (total === null || completed === null) return;
+          apiGet(`/api/survey/${s.id}/progress`, (pErr, pBody) => {
+            if (pErr) {
+              console.error(`Failed to fetch progress for survey ${s.id}:`, pErr);
+              return;
+            }
+            const total = pBody && typeof pBody.total === "number" ? pBody.total : 0;
+            const completed = pBody && typeof pBody.completed === "number" ? pBody.completed : 0;
             const percentComplete = total > 0 ? Math.min(1, completed / total) : 0;
             dispatch({
               type: "SURVEY_PROGRESS_UPDATED",
@@ -135,25 +120,7 @@ const activeSurveysBundle = {
                 totalCount: total,
               },
             });
-          };
-          apiGet(`/api/survey/${s.id}/elements`, (eErr, eBody) => {
-            if (eErr) {
-              console.error(`Failed to fetch elements for survey ${s.id}:`, eErr);
-            }
-            total = Array.isArray(eBody) ? eBody.length : 0;
-            dispatchProgress();
           });
-          apiFetch(`/api/survey/${s.id}/report`)
-            .then((resp) => (resp.ok ? resp.text() : ""))
-            .then((csv) => {
-              completed = csv ? countCompletedStructures(csv) : 0;
-              dispatchProgress();
-            })
-            .catch((err) => {
-              console.error(`Failed to fetch report for survey ${s.id}:`, err);
-              completed = 0;
-              dispatchProgress();
-            });
         });
       });
     },

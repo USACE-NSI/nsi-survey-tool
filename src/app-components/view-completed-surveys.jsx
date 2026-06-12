@@ -20,6 +20,7 @@ export default function ViewCompletedSurveys() {
     doUpdateUrl,
     doUpdateDashboardView,
     doSelectSurvey,
+    doFetchSurveyMembers,
   } = useConnect(
     "selectCompletedSurveys",
     "selectAuthUsername",
@@ -27,6 +28,7 @@ export default function ViewCompletedSurveys() {
     "doUpdateUrl",
     "doUpdateDashboardView",
     "doSelectSurvey",
+    "doFetchSurveyMembers",
   );
 
   const isAdmin = !!authRolesCaseInsensitiveObj?.ADMIN;
@@ -39,6 +41,7 @@ export default function ViewCompletedSurveys() {
       viewCompleted: false,
     });
     doSelectSurvey(survey);
+    doFetchSurveyMembers(survey.id);
   };
 
   const openResults = (survey) => {

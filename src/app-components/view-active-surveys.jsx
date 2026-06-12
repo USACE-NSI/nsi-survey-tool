@@ -23,6 +23,7 @@ export default function ViewActiveSurveys() {
     doUpdateDashboardView,
     doSelectSurvey,
     doFetchSurveyElements,
+    doFetchSurveyMembers,
   } = useConnect(
     "selectActiveSurveys",
     "selectAuthUsername",
@@ -31,6 +32,7 @@ export default function ViewActiveSurveys() {
     "doUpdateDashboardView",
     "doSelectSurvey",
     "doFetchSurveyElements",
+    "doFetchSurveyMembers",
   );
 
   const isAdmin = !!authRolesCaseInsensitiveObj?.ADMIN;
@@ -44,6 +46,7 @@ export default function ViewActiveSurveys() {
     });
     doSelectSurvey(survey);
     doFetchSurveyElements(survey.id);
+    doFetchSurveyMembers(survey.id);
   };
 
   const openMap = (survey) => {

@@ -2,10 +2,6 @@
 //@TODO make api call to create new surveys? make api call to post a survey or edits to a survey.
 //@TODO add an api call to post surveyElements from csv.
 import Papa from "papaparse";
-// Shared with active-surveys-bundle so the tray's progress refresh dedupes
-// completed structures (control structures appear on multiple surveyors' rows)
-// exactly the same way the active-surveys progress bar does.
-import { countCompletedStructures } from "./active-surveys-bundle";
 //a function to generate a guid. this could be a database behavior in the future. i needed it for identification of unique surveys in lists so i had to do something in the interum.
 function generateGuid() {
   var d = new Date().getTime(); // Timestamp
@@ -216,6 +212,25 @@ const surveyBundle = {
           console.error(`Failed to fetch results for survey ${targetId}:`, err);
         });
     },
+    //Fetch the survey's full roster (with owner flags) from /api/survey/:surveyid/members
+    // (server handler GetSurveyMembers, owner/admin only) and merge members + owners
+    // onto the selected survey so the manage screen's member table can list and edit
+    // them. The active/completed lists only carry owners (from the public /owners
+    // endpoint), so the editable roster is loaded here when an owner opens manage.
+    doFetchSurveyMembers: (surveyId) => ({ dispatch, apiGet, store }) => {
+      const targetId = surveyId || (store.selectSurvey() && store.selectSurvey().id);
+      if (!targetId) return;
+      apiGet(`/api/survey/${targetId}/members`, (err, body) => {
+        if (err) {
+          console.error(`Failed to fetch members for survey ${targetId}:`, err);
+          return;
+        }
+        const all = Array.isArray(body) ? body : [];
+        const members = all.map((m) => m.userName);
+        const owners = all.filter((m) => m.isOwner).map((m) => m.userName);
+        dispatch({ type: "UPDATE_SURVEY", payload: { members, owners } });
+      });
+    },
     //Fetch survey elements for a given surveyId and merge them onto the currently selected survey. Used when opening manage so the elements list is hydrated after a reload.
     doFetchSurveyElements: (surveyId) => ({ dispatch, apiGet }) => {
       if (!surveyId) return;
@@ -230,52 +245,29 @@ const surveyBundle = {
     },
     // Re-derive completedCount/totalCount for the currently selected survey and
     // merge them onto the survey so the tray's progress readout reflects the
-    // latest server state — including structures other surveyors submitted
-    // asynchronously since the active-surveys list was last fetched. This mirrors
-    // the per-survey progress computation in active-surveys-bundle (elements for
-    // the total, deduped completed rows from the report for the numerator).
-    //
-    // @TODO fix this - add api call to fetch completed count outside of the
-    // report generation workflow. Pulling and parsing the entire report CSV just
-    // to count completed structures is wasteful; a dedicated count endpoint
-    // (e.g. GET /api/survey/:id/progress returning {completedCount, totalCount})
-    // would avoid shipping every row on each refresh.
-    doRefreshSurveyProgress: (surveyId) => ({ dispatch, apiGet, apiFetch, store }) => {
+    // latest server state. Backed by the dedicated GET /api/survey/:id/progress
+    // endpoint (server handler GetSurveyProgress), which returns the survey-wide
+    // deduped completed element count over the survey's total element count in a
+    // single round trip — no longer pulling/parsing the entire report CSV.
+    doRefreshSurveyProgress: (surveyId) => ({ dispatch, apiGet, store }) => {
       const targetId = surveyId || (store.selectSurvey() && store.selectSurvey().id);
       if (!targetId) {
         console.warn("doRefreshSurveyProgress: no surveyId");
         return;
       }
-      let total = null;
-      let completed = null;
-      // Only dispatch once both the total (elements) and the numerator (report)
-      // have resolved, so the readout never flashes a half-updated count.
-      const dispatchProgress = () => {
-        if (total === null || completed === null) return;
+      apiGet(`/api/survey/${targetId}/progress`, (err, body) => {
+        if (err) {
+          console.error(`doRefreshSurveyProgress: failed to fetch progress for survey ${targetId}:`, err);
+          return;
+        }
+        const total = body && typeof body.total === "number" ? body.total : 0;
+        const completed = body && typeof body.completed === "number" ? body.completed : 0;
         const percentComplete = total > 0 ? Math.min(1, completed / total) : 0;
         dispatch({
           type: "UPDATE_SURVEY",
           payload: { completedCount: completed, totalCount: total, percentComplete },
         });
-      };
-      apiGet(`/api/survey/${targetId}/elements`, (err, body) => {
-        if (err) {
-          console.error(`doRefreshSurveyProgress: failed to fetch elements for survey ${targetId}:`, err);
-        }
-        total = Array.isArray(body) ? body.length : 0;
-        dispatchProgress();
       });
-      apiFetch(`/api/survey/${targetId}/report`)
-        .then((resp) => (resp.ok ? resp.text() : ""))
-        .then((csv) => {
-          completed = csv ? countCompletedStructures(csv) : 0;
-          dispatchProgress();
-        })
-        .catch((err) => {
-          console.error(`doRefreshSurveyProgress: failed to fetch report for survey ${targetId}:`, err);
-          completed = 0;
-          dispatchProgress();
-        });
     },
     // Begin a brand-new survey: a fresh client GUID and isNew=true. isNew is the
     // bundle's record that the survey does not exist server-side yet, so member
@@ -338,6 +330,9 @@ const surveyBundle = {
           ? (currentOwners.includes(userName) ? currentOwners : [...currentOwners, userName])
           : currentOwners.filter((o) => o !== userName);
         dispatch({ type: "UPDATE_SURVEY", payload: { members, owners } });
+        // Refresh the owners on the active/completed list rows so the "Owners:"
+        // label and owner-only manage controls reflect the change immediately.
+        dispatch({ type: "SURVEY_OWNERS_UPDATED", payload: { surveyId, owners } });
         if (typeof onSuccess === "function") onSuccess(userId);
       });
     },
@@ -384,6 +379,9 @@ const surveyBundle = {
           type: "UPDATE_SURVEY",
           payload: { members: updatedMembers, owners: updatedOwners },
         });
+        // Refresh the owners on the active/completed list rows so the "Owners:"
+        // label and owner-only manage controls reflect the removal immediately.
+        dispatch({ type: "SURVEY_OWNERS_UPDATED", payload: { surveyId, owners: updatedOwners } });
         if (typeof onSuccess === "function") onSuccess(userId);
       });
     },
