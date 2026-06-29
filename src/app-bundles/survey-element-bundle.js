@@ -19,7 +19,7 @@ const defaultSurvey = {
   noStreetView: false,
   shouldInitialize: false,
   occupancyType: "Unknown",
-  damcat: "Unknown",
+  damcat: "UNK",
   xy_updating: false,
   x: 0.0,
   y: 0.0,
@@ -31,7 +31,7 @@ const defaultSurvey = {
   storiesInvalid: false,
   sq_ft: 0.0,
   sqFtInvalid: false,
-  found_type: "Unknown",
+  found_type: "UNK",
   replacement_type: "Unknown",
   quality: "Unknown",
   const_type: "Unknown",
@@ -178,7 +178,10 @@ const surveyElementBundle = {
             type: "SURVEY_LOADED",
             payload: {
               surveyElement: {
-                damcat: props.st_damcat || "Unknown",
+                // st_damcat maps to a varchar(3) column, so the "unknown"
+                // sentinel must stay within 3 chars (and non-empty, or the
+                // submit-time validation flags the element invalid).
+                damcat: props.st_damcat || "UNK",
                 occupancyType: occtype,
                 x: props.x,
                 y: props.y,

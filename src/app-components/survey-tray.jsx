@@ -45,11 +45,11 @@ const damcats = [
   { val: "IND", display: "Industrial" },
   { val: "COM", display: "Commercial" },
   { val: "PUB", display: "Public" },
-  { val: "Unknown", display: "Unknown" },
+  { val: "UNK", display: "Unknown" },
 ];
 
 const foundTypes = [
-  { val: "Empty", display: "" },
+  { val: "", display: "" },
   { val: "Base", display: "Basement" },
   { val: "Soli", display: "Solid Wall" },
   { val: "Craw", display: "Crawlspace" },
@@ -62,7 +62,7 @@ const foundTypes = [
   { val: "SLWB", display: "Split Level Basement" },
   { val: "SLNB", display: "Split Level No Basement" },
   { val: "SLUN", display: "Split Level Unk Basement" },
-  { val: "Unknown", display: "Unknown" },
+  { val: "UNK", display: "Unknown" },
 ];
 
 const rsMeansTypes = {
