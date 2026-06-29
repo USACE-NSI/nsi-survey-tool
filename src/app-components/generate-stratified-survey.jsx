@@ -12,6 +12,23 @@ import {
 import HelpLink from "./help-link";
 import UploadPolygon from "./upload-polygon";
 
+// Human-readable labels for the strata enum names persisted to
+// survey_element.strata (see strataLabel() in nsi-bundle). The enum is the key
+// used for survey.strataProportions / strataSampleSizes; this map is display
+// only. Falls back to the raw enum for any value not listed.
+const STRATA_DISPLAY_LABELS = {
+  RES1_OTHER: "Residential, no flood zone",
+  RES1_FLD: "Residential, flood zone",
+  OTHER_FLD: "Flood zone, non-residential",
+  OTHER_OTHER: "Other",
+  RES1: "Residential",
+  FLD: "Flood zone",
+  OTHER: "Other",
+  ALL: "All structures",
+};
+const strataDisplayLabel = (enumName) =>
+  STRATA_DISPLAY_LABELS[enumName] ?? enumName;
+
 export default function GenerateStratifiedSurvey() {
   //const fwLinkHost = "https://www.hec.usace.army.mil/fwlink/?linkid=";
   const {
@@ -115,18 +132,16 @@ export default function GenerateStratifiedSurvey() {
   // applies).
   const useResidential = survey.residentialStratification;
   const useFloodzone = survey.floodzoneStratification;
+  // Strata enum names — must match strataLabel() in nsi-bundle so the
+  // proportion-table keys line up with what the sampler writes to
+  // survey.strataProportions (and persists to survey_element.strata).
   let strata = [];
   if (useResidential && useFloodzone) {
-    strata = [
-      "Residential no flood zone",
-      "Residential flood zone",
-      "Floodzone no residential",
-      "Other",
-    ];
+    strata = ["RES1_OTHER", "RES1_FLD", "OTHER_FLD", "OTHER_OTHER"];
   } else if (useResidential) {
-    strata = ["Residential", "Other"];
+    strata = ["RES1", "OTHER"];
   } else if (useFloodzone) {
-    strata = ["Floodzone", "Other"];
+    strata = ["FLD", "OTHER"];
   }
   const isStratified = strata.length > 0;
 
@@ -275,8 +290,8 @@ export default function GenerateStratifiedSurvey() {
             <TableBody>
               {strata.map((label) => (
                 <TableRow key={label}>
-                  <TableCell className="gw-text-xs gw-font-mono">
-                    {label}
+                  <TableCell className="gw-text-xs" title={label}>
+                    {strataDisplayLabel(label)}
                   </TableCell>
                   <TableCell>
                     <select

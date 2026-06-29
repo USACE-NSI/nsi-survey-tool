@@ -278,7 +278,7 @@ const surveyElementBundle = {
       });
     },
     //Roll the current assignment back one survey_order step and load that element.
-    //Hits GET /api/survey/:surveyId/previous (server handler PreviousSurveyElement) — server returns a SurveyStructure shaped exactly like doSurveyFetchNext so the same hydrate-then-autofill flow applies. When the server reports the user is already on the first assignment it returns {"result":"first"}; we set surveyElement.atFirst so the tray button can disable itself instead of looping a failing call.
+    //Hits GET /api/survey/:surveyId/previous (server handler PreviousSurveyElement) — server returns a SurveyStructure shaped exactly like doSurveyFetchNext so the same hydrate-then-autofill flow applies. When the user is already on the first element the server responds HTTP 200 with either {"result":"first"} or a stub carrying the nil saId (no earlier assignment exists); we detect that, set surveyElement.atFirst so the tray button disables itself, and leave the current element on screen.
     doSurveyFetchPrevious: () => ({ dispatch, store, apiGet }) => {
       const survey = store.selectSurvey();
       const surveyId = survey && survey.id;
@@ -294,12 +294,13 @@ const surveyElementBundle = {
       apiGet(`/api/survey/${surveyId}/previous`, (err, body) => {
         if (err) {
           console.error(`Failed to fetch previous assignment for survey ${surveyId}:`, err);
-          // The server's PreviousSurveyElement doesn't yet have a "no previous" branch — when the user is on the first assignment, PreviousAssignedSurveyElement falls through with uuid.Nil and the AssignSurvey insert violates the FK, surfacing as a 500. Treat that specific status as atFirst so the surveyor doesn't keep poking a known-failing endpoint; any other status (auth/network) leaves the button enabled so a retry remains possible. Once the server returns {"result":"first"} the body branch below takes over and this fallback becomes a no-op.
-          const isAtFirst =
-            err && typeof err.message === "string" && err.message.indexOf("500") !== -1;
+          // A real error (auth/network/5xx) is no longer the "at first element"
+          // signal: the fixed server answers that case with HTTP 200 (see the
+          // nil-saId check below). Leave the button enabled so a retry stays
+          // possible instead of falsely disabling it on a transient failure.
           dispatch({
             type: "SURVEY_LOADED",
-            payload: { surveyElement: { fetchingAssignment: false, atFirst: !!isAtFirst, isLoading: false } },
+            payload: { surveyElement: { fetchingAssignment: false, isLoading: false } },
           });
           return;
         }
@@ -308,7 +309,14 @@ const surveyElementBundle = {
           dispatch({ type: "SURVEY_LOADED", payload: { surveyElement: { fetchingAssignment: false, isLoading: false } } });
           return;
         }
-        if (body.result === "first") {
+        // "Already at the first element" now comes back as HTTP 200. The server's
+        // PreviousAssignedSurveyElement returns uuid.Nil when there's no earlier
+        // assignment, so GetStructure hands back a stub carrying the nil saId
+        // ("000…000") and no real fdId. Treat either the explicit {"result":"first"}
+        // contract or that nil-saId stub as "don't move": set atFirst and keep the
+        // current element on screen instead of overwriting it with the empty stub.
+        const NIL_UUID = "00000000-0000-0000-0000-000000000000";
+        if (body.result === "first" || !body.saId || body.saId === NIL_UUID) {
           console.log(`doSurveyFetchPrevious: already at first assignment for survey ${surveyId}`);
           dispatch({
             type: "SURVEY_LOADED",

@@ -21,10 +21,12 @@
 // memory win is lost to proxy-side buffering.
 const NSI_BASE = import.meta.env.VITE_NSI_BASE || "";
 const NSI_STREAM_URL = `${NSI_BASE}/nsiapi/structures?fmt=fs`;
-// Single-structure lookup by fd_id. Relative path proxied to the NSI API by the
-// Vite dev server (see vite.config.js); production must reverse-proxy the same.
+// Single-structure lookup by fd_id. The fd_id is a path segment; the relative
+// /nsiapi path is proxied to https://nsi.sec.usace.army.mil by the Vite dev
+// server (see vite.config.js), which sidesteps CORS. So this resolves to
+// /nsiapi/structures/fd_id/523367802 -> nsi.sec.usace.army.mil/nsiapi/structures/fd_id/523367802
 const NSI_STRUCTURE_URL = (fdId) =>
-  `${NSI_BASE}/nsiapi/structures/${encodeURIComponent(fdId)}`;
+  `${NSI_BASE}/nsiapi/structures/fd_id/${encodeURIComponent(fdId)}`;
 
 // RFC 8142 record separator: each feature in the stream is prefixed by RS and
 // terminated by a line feed.
@@ -87,20 +89,18 @@ const floodzoneBucket = (firmzone) => {
   return "OTHER";
 };
 
-// Strata labels here must match the rows rendered in generate-stratified-survey
-// so survey.strataProportions keys line up with what the sampler assigns.
+// Strata enum names. These are persisted to survey_element.strata (varchar(15)),
+// so they must stay short, and they must match the rows rendered in
+// generate-stratified-survey so survey.strataProportions keys line up with what
+// the sampler assigns. Composed from the residential token (RES1/OTHER) and the
+// collapsed floodzone token (FLD/OTHER).
 const strataLabel = (feature, useResidential, useFloodzone) => {
   const props = (feature && feature.properties) || {};
-  const isResidential = residentialBucket(props.occtype) === "RES1";
-  const inFloodzone = floodzoneBucket(props.firmzone) !== "OTHER";
-  if (useResidential && useFloodzone) {
-    if (isResidential && inFloodzone) return "Residential flood zone";
-    if (isResidential) return "Residential no flood zone";
-    if (inFloodzone) return "Floodzone no residential";
-    return "Other";
-  }
-  if (useResidential) return isResidential ? "Residential" : "Other";
-  if (useFloodzone) return inFloodzone ? "Floodzone" : "Other";
+  const resToken = residentialBucket(props.occtype) === "RES1" ? "RES1" : "OTHER";
+  const fzToken = floodzoneBucket(props.firmzone) !== "OTHER" ? "FLD" : "OTHER";
+  if (useResidential && useFloodzone) return `${resToken}_${fzToken}`;
+  if (useResidential) return resToken;
+  if (useFloodzone) return fzToken;
   return "ALL";
 };
 
