@@ -50,6 +50,8 @@ function App() {
       <SiteWrapper
         fluidNav={true}
         navRight={<NavLinks />}
+        usaBanner={false}
+        msgBanner={false}
         missionText="To facilitate low cost surveys to identify the quality of a structure inventory."
       >
         <div>

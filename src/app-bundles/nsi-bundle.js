@@ -1,7 +1,12 @@
 // nsiBundle fetches NSI structures inside the currently selected survey's
 // perimeter and writes a stratified random sample of them onto the survey as
-// survey.elements + survey.sampleSize. The fetched FeatureCollection is
-// transient — it lives only inside the action and is not held in store state.
+// survey.elements + survey.sampleSize.
+//
+// Rather than buffer the whole inventory, we request the RFC 8142 feature
+// stream (fmt=fs) and consume it record-by-record: each feature is binned into
+// its stratum and then discarded, so peak memory is bounded by the reservoirs
+// (a few hundred fd_ids per stratum) rather than by the polygon's structure
+// count. This lets users run much larger perimeters without exhausting memory.
 //
 // The NSI endpoint is an external service, so we use plain fetch rather than
 // apiPost (which would attach our internal Keycloak bearer token).
@@ -11,11 +16,26 @@
 // we wrap it before posting.
 // Relative paths; the Vite dev server proxies /nsiapi to
 // https://nsi.sec.usace.army.mil (see vite.config.js) to sidestep CORS. The
-// same reverse-proxy mapping must exist in production deployments.
+// same reverse-proxy mapping must exist in production deployments, and it must
+// stream the response through (e.g. nginx `proxy_buffering off;`) or the
+// memory win is lost to proxy-side buffering.
 const NSI_BASE = import.meta.env.VITE_NSI_BASE || "";
-const NSI_STRUCTURES_URL = `${NSI_BASE}/nsiapi/structures?fmt=fc`;
+const NSI_STREAM_URL = `${NSI_BASE}/nsiapi/structures?fmt=fs`;
+// Single-structure lookup by fd_id. Relative path proxied to the NSI API by the
+// Vite dev server (see vite.config.js); production must reverse-proxy the same.
 const NSI_STRUCTURE_URL = (fdId) =>
-  `${NSI_BASE}/nsiapi/structure/${encodeURIComponent(fdId)}`;
+  `${NSI_BASE}/nsiapi/structures/${encodeURIComponent(fdId)}`;
+
+// RFC 8142 record separator: each feature in the stream is prefixed by RS and
+// terminated by a line feed.
+const RECORD_SEPARATOR = "\x1e";
+// Dispatch a progress update at most once per this many features so a multi-
+// hundred-thousand structure stream doesn't flood the store with actions.
+const PROGRESS_INTERVAL = 5000;
+
+// Holds the AbortController for the in-flight stream so doCancel can stop it.
+// Module-level (not store state) because an AbortController is not serializable.
+let currentAbortController = null;
 
 // z-scores for the confidence levels offered in the UI. Falls back to 1.96
 // (95%) for any value not in the table so the math stays well-defined.
@@ -36,6 +56,19 @@ const cochranSampleSize = (population, confidence, margin, proportion) => {
   const n0 = (z * z * p * (1 - p)) / (e * e);
   const n = n0 / (1 + (n0 - 1) / population);
   return Math.min(population, Math.ceil(n));
+};
+
+// The uncorrected Cochran sample size n0 = z^2 * p * (1-p) / e^2. Because the
+// finite population correction only ever shrinks the sample (n <= n0 for all N),
+// ceil(n0) is the largest sample any stratum can require regardless of its final
+// population. We size each stratum's reservoir to this so a single streaming
+// pass always retains enough candidates to draw the final sample.
+const cochranN0 = (confidence, margin, proportion) => {
+  const z = zScore(confidence);
+  const e = Number(margin);
+  const p = Number(proportion);
+  if (!e || p <= 0 || p >= 1) return 0;
+  return Math.ceil((z * z * p * (1 - p)) / (e * e));
 };
 
 // Residential bucket: split occtype on "-" and check the leading token.
@@ -103,70 +136,100 @@ const perimeterToFeatureCollection = (geometry) => {
   throw new Error(`Unsupported perimeter geometry type: ${geometry.type}`);
 };
 
-// Stratify a FeatureCollection per the survey's residential/floodzone flags,
-// compute a Cochran sample size per stratum from confidence/margin/proportion
-// against each stratum's own population, and return the survey.elements rows
-// plus the per-stratum sample sizes (label -> count) so the UI can surface the
-// allocation that produced the sample.
-const stratifiedSampleFromFeatures = (features, survey) => {
+// Streaming stratified sampler. Build one of these per generate run, feed it
+// features one at a time via add() as they arrive on the stream, then call
+// finalize() once the stream ends to draw the sample.
+//
+// For each stratum we keep only a running population count and a bounded
+// reservoir of candidate fd_ids (capped at ceil(n0) — the largest sample that
+// stratum could ever need). add() uses Algorithm R reservoir sampling so the
+// reservoir is always a uniform random sample of the fd_ids seen so far, which
+// means we never hold the full inventory in memory. finalize() computes the
+// finite-population-corrected Cochran sample size from each stratum's final
+// population and draws that many from the reservoir.
+//
+// Strata, proportions, and statistical parameters are captured from the survey
+// at construction time so they stay consistent for the whole stream even if the
+// user edits the form mid-run.
+const createStratifiedReservoir = (survey) => {
   const useResidential = !!survey.residentialStratification;
   const useFloodzone = !!survey.floodzoneStratification;
-
-  const byStratum = {};
-  for (const f of features) {
-    const label = strataLabel(f, useResidential, useFloodzone);
-    (byStratum[label] = byStratum[label] || []).push(f);
-  }
-  const stratumSizes = Object.fromEntries(
-    Object.entries(byStratum).map(([k, v]) => [k, v.length]),
-  );
-  // Each stratum gets its own Cochran sample size computed from that stratum's
-  // population (with finite population correction). The overall sample is the
-  // sum of these, so adding strata increases the total sample size. Each stratum
-  // may carry its own proportion (survey.strataProportions[label]); when none is
-  // set we fall back to survey.defaultProportion (UI-only default; not persisted).
   const strataProportions = survey.strataProportions || {};
-  const allocation = Object.fromEntries(
-    Object.entries(stratumSizes).map(([k, size]) => [
-      k,
-      cochranSampleSize(
-        size,
+  // Each stratum may carry its own proportion (survey.strataProportions[label]);
+  // when none is set we fall back to survey.defaultProportion (UI-only default;
+  // not persisted).
+  const propFor = (label) => strataProportions[label] ?? survey.defaultProportion;
+
+  // label -> { population, seen, cap, reservoir }
+  // population: every feature in the stratum (drives Cochran).
+  // seen: fd_id-bearing features (drives reservoir indexing).
+  const strata = {};
+
+  const add = (feature) => {
+    const label = strataLabel(feature, useResidential, useFloodzone);
+    let s = strata[label];
+    if (!s) {
+      s = strata[label] = {
+        population: 0,
+        seen: 0,
+        cap: cochranN0(survey.confidence, survey.margin, propFor(label)),
+        reservoir: [],
+      };
+    }
+    s.population += 1;
+    const fdId = feature.properties && feature.properties.fd_id;
+    if (fdId == null || s.cap <= 0) return;
+    s.seen += 1;
+    if (s.reservoir.length < s.cap) {
+      s.reservoir.push(fdId);
+    } else {
+      // Algorithm R: replace a random slot with probability cap/seen.
+      const j = Math.floor(Math.random() * s.seen);
+      if (j < s.cap) s.reservoir[j] = fdId;
+    }
+  };
+
+  const finalize = () => {
+    const allocation = {};
+    const elements = [];
+    for (const [label, s] of Object.entries(strata)) {
+      const k = cochranSampleSize(
+        s.population,
         survey.confidence,
         survey.margin,
-        strataProportions[k] ?? survey.defaultProportion,
-      ),
-    ]),
-  );
+        propFor(label),
+      );
+      allocation[label] = k;
+      if (k <= 0) continue;
+      const picks = shuffle(s.reservoir.slice()).slice(0, k);
+      for (const fdId of picks) {
+        elements.push({ fd_id: fdId, strata: label, control: false });
+      }
+    }
+    // Control assignment is uniformly random across the entire sample (not
+    // per-stratum) — shuffle indices and flip the first N to control=true.
+    const pctControl = Number(survey.percentControlStructures) || 0;
+    const numControl = Math.min(
+      elements.length,
+      Math.round(elements.length * pctControl),
+    );
+    if (numControl > 0) {
+      const indices = elements.map((_, i) => i);
+      shuffle(indices);
+      for (let i = 0; i < numControl; i++) {
+        elements[indices[i]].control = true;
+      }
+    }
+    // Post-process: the first 10 elements are always control, on top of whatever
+    // the user's percent-based assignment selected above.
+    const forcedControl = Math.min(elements.length, 10);
+    for (let i = 0; i < forcedControl; i++) {
+      elements[i].control = true;
+    }
+    return { elements, strataSampleSizes: allocation };
+  };
 
-  const elements = [];
-  for (const [label, bucket] of Object.entries(byStratum)) {
-    const k = allocation[label] || 0;
-    if (k <= 0) continue;
-    const picks = shuffle(bucket.slice()).slice(0, k);
-    for (const f of picks) {
-      const fdId = f.properties && f.properties.fd_id;
-      if (fdId == null) continue;
-      elements.push({ fd_id: fdId, strata: label, control: false });
-    }
-  }
-  // Control assignment is uniformly random across the entire sample (not
-  // per-stratum) — shuffle indices and flip the first N to control=true.
-  const pctControl = Number(survey.percentControlStructures) || 0;
-  const numControl = Math.min(elements.length, Math.round(elements.length * pctControl));
-  if (numControl > 0) {
-    const indices = elements.map((_, i) => i);
-    shuffle(indices);
-    for (let i = 0; i < numControl; i++) {
-      elements[indices[i]].control = true;
-    }
-  }
-  // Post-process: the first 10 elements are always control, on top of whatever
-  // the user's percent-based assignment selected above.
-  const forcedControl = Math.min(elements.length, 10);
-  for (let i = 0; i < forcedControl; i++) {
-    elements[i].control = true;
-  }
-  return { elements, strataSampleSizes: allocation };
+  return { add, finalize };
 };
 
 const nsiBundle = {
@@ -175,38 +238,38 @@ const nsiBundle = {
     const initialState = {
       fetching: false,
       error: null,
-      // Monkey patch: cache of NSI features keyed by fd_id, populated by
-      // doPrefetchNsiStructuresForSurvey. Lets doFetchNsiStructure serve
-      // single-structure lookups out of memory while /nsiapi/structure/:fdId
-      // is returning 500.
-      structuresByFdId: {},
-      prefetching: false,
-      prefetchSurveyId: null,
-      prefetchError: null,
+      // processed: features binned so far on the in-flight stream.
+      // startedAt: epoch ms when the current stream began (for elapsed time).
+      processed: 0,
+      startedAt: null,
     };
     return (state = initialState, { type, payload }) => {
       switch (type) {
         case "NSI_FETCH_START":
-          return { ...state, fetching: true, error: null };
+          return {
+            ...state,
+            fetching: true,
+            error: null,
+            processed: 0,
+            startedAt: Date.now(),
+          };
+        case "NSI_FETCH_PROGRESS":
+          return { ...state, processed: payload };
         case "NSI_FETCH_FINISH":
+          return { ...state, fetching: false };
+        case "NSI_FETCH_CANCEL":
           return { ...state, fetching: false };
         case "NSI_FETCH_ERROR":
           return { ...state, fetching: false, error: payload };
-        case "NSI_PREFETCH_START":
-          return { ...state, prefetching: true, prefetchError: null, prefetchSurveyId: payload.surveyId };
-        case "NSI_PREFETCH_FINISH":
-          return { ...state, prefetching: false, structuresByFdId: payload.structuresByFdId, prefetchSurveyId: payload.surveyId };
-        case "NSI_PREFETCH_ERROR":
-          return { ...state, prefetching: false, prefetchError: payload };
-        case "NSI_PREFETCH_CLEAR":
-          return { ...state, structuresByFdId: {}, prefetchSurveyId: null, prefetchError: null };
       }
       return state;
     };
   },
-  // Fetch NSI structures inside the survey perimeter, stratify them per the
-  // survey settings, and write the resulting sample to survey.elements +
-  // survey.sampleSize. The fetched FeatureCollection is not retained in state.
+  // Stream NSI structures inside the survey perimeter, stratify them as they
+  // arrive, and write the resulting sample to survey.elements + survey.sampleSize.
+  // Features are binned and discarded record-by-record, so the full inventory is
+  // never held in memory. Progress is reported via NSI_FETCH_PROGRESS, and the
+  // run can be aborted with doCancelNsiStratifiedSurvey.
   doGenerateNsiStratifiedSurvey:
     ({ onSuccess, onError } = {}) =>
     ({ dispatch, store }) => {
@@ -231,117 +294,117 @@ const nsiBundle = {
         if (typeof onError === "function") onError(prepErr);
         return;
       }
+
+      const controller = new AbortController();
+      currentAbortController = controller;
       dispatch({ type: "NSI_FETCH_START" });
-      fetch(NSI_STRUCTURES_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      })
-        .then((resp) => {
+
+      const reservoir = createStratifiedReservoir(survey);
+      let processed = 0;
+      let lastDispatched = 0;
+
+      // Parse one RFC 8142 record (RS-delimited; may carry a trailing LF) and
+      // feed it to the reservoir. Malformed records are skipped rather than
+      // aborting the whole stream.
+      const handleRecord = (text) => {
+        const trimmed = text.trim();
+        if (!trimmed) return;
+        let feature;
+        try {
+          feature = JSON.parse(trimmed);
+        } catch {
+          return;
+        }
+        reservoir.add(feature);
+        processed += 1;
+        if (processed - lastDispatched >= PROGRESS_INTERVAL) {
+          lastDispatched = processed;
+          dispatch({ type: "NSI_FETCH_PROGRESS", payload: processed });
+        }
+      };
+
+      (async () => {
+        try {
+          const resp = await fetch(NSI_STREAM_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+            signal: controller.signal,
+          });
           if (!resp.ok) {
             throw new Error(`NSI request returned a ${resp.status}`);
           }
-          return resp.json();
-        })
-        .then((fc) => {
-          const features = (fc && fc.features) || [];
-          // Re-read the survey in case it changed during the fetch.
+          if (!resp.body) {
+            throw new Error("NSI stream response has no readable body");
+          }
+
+          const reader = resp.body.getReader();
+          const decoder = new TextDecoder();
+          let buf = "";
+          for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buf += decoder.decode(value, { stream: true });
+            let idx;
+            while ((idx = buf.indexOf(RECORD_SEPARATOR)) !== -1) {
+              handleRecord(buf.slice(0, idx));
+              buf = buf.slice(idx + 1);
+            }
+          }
+          // Flush any bytes the decoder was holding, then drain the buffer —
+          // the final record carries no trailing separator.
+          buf += decoder.decode();
+          let idx;
+          while ((idx = buf.indexOf(RECORD_SEPARATOR)) !== -1) {
+            handleRecord(buf.slice(0, idx));
+            buf = buf.slice(idx + 1);
+          }
+          handleRecord(buf);
+
+          const { elements, strataSampleSizes } = reservoir.finalize();
+          // Re-read the survey in case it changed during the stream.
           const current = store.selectSurvey();
-          const { elements, strataSampleSizes } = stratifiedSampleFromFeatures(
-            features,
-            current,
-          );
           store.doUpdateSurvey({
             ...current,
             elements,
             sampleSize: elements.length,
             strataSampleSizes,
           });
+          dispatch({ type: "NSI_FETCH_PROGRESS", payload: processed });
           dispatch({ type: "NSI_FETCH_FINISH" });
           if (typeof onSuccess === "function") onSuccess(elements);
-        })
-        .catch((err) => {
+        } catch (err) {
+          if (err && err.name === "AbortError") {
+            dispatch({ type: "NSI_FETCH_CANCEL" });
+            return;
+          }
           console.error("Failed to generate NSI stratified survey:", err);
           dispatch({ type: "NSI_FETCH_ERROR", payload: err.message });
           if (typeof onError === "function") onError(err);
-        });
-    },
-  // Monkey patch for the 500ing /nsiapi/structure/:fdId endpoint: POST the
-  // currently selected survey's perimeter to /nsiapi/structures?fmt=fc (the
-  // bulk endpoint that still works), then index the returned FeatureCollection
-  // by fd_id so doFetchNsiStructure can serve single-structure lookups from
-  // memory. Safe to call repeatedly — re-running for the same survey simply
-  // rebuilds the cache.
-  doPrefetchNsiStructuresForSurvey:
-    ({ onSuccess, onError } = {}) =>
-    ({ dispatch, store }) => {
-      const survey = store.selectSurvey();
-      const surveyId = survey && survey.id;
-      const raw = survey && survey.perimeterGeometry;
-      if (!surveyId || !raw) {
-        // Not an error — the perimeter may still be in flight; the caller
-        // (doSelectSurvey) re-runs us once the perimeter resolves.
-        return;
-      }
-      let body;
-      try {
-        const geometry = typeof raw === "string" ? JSON.parse(raw) : raw;
-        body = perimeterToFeatureCollection(geometry);
-      } catch (prepErr) {
-        console.error("doPrefetchNsiStructuresForSurvey: bad perimeter:", prepErr);
-        dispatch({ type: "NSI_PREFETCH_ERROR", payload: prepErr.message });
-        if (typeof onError === "function") onError(prepErr);
-        return;
-      }
-      dispatch({ type: "NSI_PREFETCH_START", payload: { surveyId } });
-      fetch(NSI_STRUCTURES_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      })
-        .then((resp) => {
-          if (!resp.ok) throw new Error(`NSI structures returned a ${resp.status}`);
-          return resp.json();
-        })
-        .then((fc) => {
-          const features = (fc && fc.features) || [];
-          const structuresByFdId = {};
-          for (const f of features) {
-            const fdId = f && f.properties && f.properties.fd_id;
-            if (fdId != null) structuresByFdId[String(fdId)] = f;
+        } finally {
+          if (currentAbortController === controller) {
+            currentAbortController = null;
           }
-          dispatch({
-            type: "NSI_PREFETCH_FINISH",
-            payload: { surveyId, structuresByFdId },
-          });
-          console.log(
-            `doPrefetchNsiStructuresForSurvey: cached ${Object.keys(structuresByFdId).length} NSI structures for survey ${surveyId}`,
-          );
-          if (typeof onSuccess === "function") onSuccess(structuresByFdId);
-        })
-        .catch((err) => {
-          console.error("doPrefetchNsiStructuresForSurvey failed:", err);
-          dispatch({ type: "NSI_PREFETCH_ERROR", payload: err.message });
-          if (typeof onError === "function") onError(err);
-        });
+        }
+      })();
     },
-  // Look up a single NSI structure by fd_id. Hits the in-memory cache populated
-  // by doPrefetchNsiStructuresForSurvey first; falls back to the live
-  // /nsiapi/structure/:fdId endpoint on a miss (currently 500ing, but kept so
-  // this still works once the endpoint is restored).
+  // Abort the in-flight stratified-survey stream, if any. The fetch's catch
+  // turns the resulting AbortError into NSI_FETCH_CANCEL.
+  doCancelNsiStratifiedSurvey:
+    () =>
+    () => {
+      if (currentAbortController) currentAbortController.abort();
+    },
+  // Look up a single NSI structure by fd_id from /nsiapi/structures/:fd_id.
+  // Each survey element is fetched on demand as it is opened, so a survey never
+  // holds more than the structures actually being viewed in memory.
   doFetchNsiStructure:
     (fdId, { onSuccess, onError } = {}) =>
-    ({ store }) => {
+    () => {
       if (fdId == null || fdId === "") {
         const err = new Error("doFetchNsiStructure requires an fd_id");
         console.error(err.message);
         if (typeof onError === "function") onError(err);
-        return;
-      }
-      const cache = store.selectNsiStructures();
-      const cached = cache && cache[String(fdId)];
-      if (cached) {
-        if (typeof onSuccess === "function") onSuccess(cached);
         return;
       }
       fetch(NSI_STRUCTURE_URL(fdId), { method: "GET" })
@@ -362,8 +425,8 @@ const nsiBundle = {
   selectNsi: (state) => state.nsi,
   selectNsiFetching: (state) => state.nsi.fetching,
   selectNsiError: (state) => state.nsi.error,
-  selectNsiStructures: (state) => state.nsi.structuresByFdId,
-  selectNsiPrefetching: (state) => state.nsi.prefetching,
+  selectNsiProcessed: (state) => state.nsi.processed,
+  selectNsiStartedAt: (state) => state.nsi.startedAt,
 };
 
 export default nsiBundle;

@@ -25,6 +25,11 @@ export default defineConfig(({ mode }) => {
         },
         // NSI public API doesn't send CORS headers, so go through the dev server.
         // Production needs the same hostname reverse-proxied (or VITE_NSI_BASE set).
+        // IMPORTANT: stratified survey generation consumes the NSI RFC 8142
+        // feature stream (fmt=fs) record-by-record to keep memory bounded for
+        // large perimeters. The production reverse proxy for /nsiapi MUST stream
+        // the response through unbuffered (e.g. nginx `proxy_buffering off;`),
+        // or it will buffer the whole inventory and negate the memory win.
         '/nsiapi': {
           target: 'https://nsi.sec.usace.army.mil',
           changeOrigin: true,

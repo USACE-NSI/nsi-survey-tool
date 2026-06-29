@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { useConnect } from "redux-bundler-hook";
 import {
   Button,
@@ -17,15 +18,41 @@ export default function GenerateStratifiedSurvey() {
     survey,
     doUpdateSurvey,
     doGenerateNsiStratifiedSurvey,
+    doCancelNsiStratifiedSurvey,
     nsiFetching,
     nsiError,
+    nsiProcessed,
+    nsiStartedAt,
   } = useConnect(
     "selectSurvey",
     "doUpdateSurvey",
     "doGenerateNsiStratifiedSurvey",
+    "doCancelNsiStratifiedSurvey",
     "selectNsiFetching",
     "selectNsiError",
+    "selectNsiProcessed",
+    "selectNsiStartedAt",
   );
+
+  // Tick a local clock once a second while a stream is running so the elapsed
+  // time stays current; the stream itself only dispatches a structure count.
+  // Elapsed is derived during render from this clock and the run's start time.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!nsiFetching || !nsiStartedAt) return undefined;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [nsiFetching, nsiStartedAt]);
+  const elapsed =
+    nsiFetching && nsiStartedAt
+      ? Math.max(0, Math.floor((now - nsiStartedAt) / 1000))
+      : 0;
+
+  const formatElapsed = (totalSeconds) => {
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${String(seconds).padStart(2, "0")}`;
+  };
 
   // Options arrays remain the same...
   const inventories = [
@@ -72,7 +99,7 @@ export default function GenerateStratifiedSurvey() {
 
   // Per-stratum proportion override. Stored as a label->proportion map on
   // survey.strataProportions; strata without an entry fall back to
-  // survey.defaultProportion in stratifiedSampleFromFeatures.
+  // survey.defaultProportion in createStratifiedReservoir.
   const handleStrataProportionChange = (label) => (e) => {
     doUpdateSurvey({
       ...survey,
@@ -297,12 +324,26 @@ export default function GenerateStratifiedSurvey() {
         >
           {nsiFetching ? "Generating..." : "Generate Stratified Survey"}
         </Button>
-        {!survey.perimeterGeometry && (
+        {nsiFetching && (
+          <>
+            <Button
+              className="btn btn-secondary"
+              onClick={() => doCancelNsiStratifiedSurvey()}
+            >
+              Cancel
+            </Button>
+            <span className="gw-text-xs gw-text-slate-600">
+              Scanned {(nsiProcessed || 0).toLocaleString()} structures…{" "}
+              ({formatElapsed(elapsed)})
+            </span>
+          </>
+        )}
+        {!survey.perimeterGeometry && !nsiFetching && (
           <span className="gw-text-xs gw-text-slate-500">
             Upload a perimeter polygon to enable.
           </span>
         )}
-        {nsiError && (
+        {nsiError && !nsiFetching && (
           <span className="gw-text-xs gw-text-red-600">{nsiError}</span>
         )}
       </div>

@@ -106,20 +106,18 @@ const surveyBundle = {
             payload: state
           });
     },
-    //Load a survey from the active/completed list into the survey bundle and fetch its perimeter geometry. The list rows intentionally don't carry geometry, so we hit /api/survey/:surveyid/perimeter and merge perimeter_geom -> perimeterGeometry once it returns. Also pushes the perimeter into the map bundle so the map page can render it as a layer and fit the view. Once the perimeter is in hand, kick off the NSI structure prefetch so doAutofillFromNsi can serve single-structure lookups out of memory (monkey patch for the 500ing /nsiapi/structure/:fdId endpoint). Use this anywhere a user "opens" a survey.
-    // opts.autoAdvance: after the survey's NSI structures are prefetched into
-    // the in-memory cache, automatically load the first assignment (NEXT).
-    // This MUST wait for the prefetch — doAutofillFromNsi reads the cache, and
-    // the live /nsiapi/structure/:fdId fallback is currently 500ing, so
-    // advancing before the cache is warm leaves the structure unpopulated.
-    // Used by "View Survey" so the surveyor lands on a hydrated first element.
+    //Load a survey from the active/completed list into the survey bundle and fetch its perimeter geometry. The list rows intentionally don't carry geometry, so we hit /api/survey/:surveyid/perimeter and merge perimeter_geom -> perimeterGeometry once it returns. Also pushes the perimeter into the map bundle so the map page can render it as a layer and fit the view. Each survey element's NSI structure is loaded on demand by doAutofillFromNsi via /nsiapi/structures/:fd_id as the element is opened. Use this anywhere a user "opens" a survey.
+    // opts.autoAdvance: once the perimeter has loaded, automatically load the
+    // first assignment (NEXT). Each element's NSI structure is fetched on demand
+    // by doAutofillFromNsi via /nsiapi/structures/:fd_id, so there is nothing to
+    // pre-warm. Used by "View Survey" so the surveyor lands on the first element.
     doSelectSurvey: (surveyData, opts = {}) => ({ dispatch, apiGet, store }) => {
       if (!surveyData || !surveyData.id) return;
       // Clear the previously surveyed element so the tray starts empty/locked
       // for the newly selected survey.
       if (store && store.doSurveyResetElement) store.doSurveyResetElement();
       // When auto-advancing, mark the element loading up front so the tray's
-      // entry form stays disabled through the perimeter + prefetch + NEXT chain
+      // entry form stays disabled through the perimeter + NEXT chain
       // (which can take several seconds for large study areas).
       if (opts.autoAdvance) {
         dispatch({ type: "SURVEY_LOADED", payload: { surveyElement: { isLoading: true } } });
@@ -131,13 +129,12 @@ const surveyBundle = {
         payload: { ...surveyData, perimeterGeometry: null, isNew: false },
       });
       if (store && store.doSetMapPerimeter) store.doSetMapPerimeter(null);
-      dispatch({ type: "NSI_PREFETCH_CLEAR" });
       apiGet(`/api/survey/${surveyData.id}/perimeter`, (err, body) => {
         if (err) {
           console.error(`Failed to fetch perimeter for survey ${surveyData.id}:`, err);
-          // No perimeter means no prefetch is possible; still advance so the
-          // assignment loads (the structure autofill will degrade to the live
-          // endpoint), and clear the up-front loading flag we set above.
+          // No perimeter loaded, but the assignment can still load — each
+          // element's structure is fetched on demand. Advance and clear the
+          // up-front loading flag we set above.
           if (opts.autoAdvance && store && store.doSurveyFetchNext) {
             store.doSurveyFetchNext();
           }
@@ -146,17 +143,9 @@ const surveyBundle = {
         const perimeterGeometry = body && body.perimeter_geom ? body.perimeter_geom : null;
         dispatch({ type: "UPDATE_SURVEY", payload: { perimeterGeometry } });
         if (store && store.doSetMapPerimeter) store.doSetMapPerimeter(perimeterGeometry);
-        // Now that perimeterGeometry is on the survey, the NSI bundle can read it from selectSurvey().
-        if (perimeterGeometry && store && store.doPrefetchNsiStructuresForSurvey) {
-          // Chain the auto-advance onto prefetch completion so the first
-          // assignment hydrates from the warm in-memory cache.
-          store.doPrefetchNsiStructuresForSurvey(
-            opts.autoAdvance
-              ? { onSuccess: () => store.doSurveyFetchNext(), onError: () => store.doSurveyFetchNext() }
-              : undefined
-          );
-        } else if (opts.autoAdvance && store && store.doSurveyFetchNext) {
-          // No perimeter geometry to prefetch — advance anyway.
+        // Structures are fetched per element on demand, so nothing to pre-warm —
+        // advance straight to the first assignment.
+        if (opts.autoAdvance && store && store.doSurveyFetchNext) {
           store.doSurveyFetchNext();
         }
       });
@@ -465,7 +454,7 @@ const surveyBundle = {
       // proportions is the per-strata { label -> proportion } map (survey.strataProportions);
       // it persists to the survey.proportions jsonb column. survey.defaultProportion is a
       // UI-only default (the fallback for strata without an explicit override; see
-      // stratifiedSampleFromFeatures) — the API/database ignore it, so it's dropped silently.
+      // createStratifiedReservoir) — the API/database ignore it, so it's dropped silently.
       const body = {
         title: payload.name,
         description: payload.description,

@@ -160,7 +160,6 @@ function SurveyTray() {
   const {
     survey,
     surveyElement,
-    nsiPrefetching,
     doSurveyStreetView,
     doSurveySetZoom,
     doSurveyModifyXY,
@@ -173,7 +172,6 @@ function SurveyTray() {
   } = useConnect(
     "selectSurvey",
     "selectSurveyElement",
-    "selectNsiPrefetching",
     "doSurveyStreetView",
     "doSurveySetZoom",
     "doSurveyModifyXY",
@@ -233,9 +231,7 @@ function SurveyTray() {
       <div style={{ padding: "5px", gap: "5px", display: "flex" }}>
         <Button
           title={
-            nsiPrefetching
-              ? "Loading NSI structures…"
-              : surveyElement.fetchingAssignment
+            surveyElement.fetchingAssignment
               ? "Loading…"
               : !surveyElement.saId
               ? "Click NEXT to load an assignment first"
@@ -244,7 +240,6 @@ function SurveyTray() {
               : "Get Previous Survey Element"
           }
           disabled={
-            nsiPrefetching ||
             surveyElement.fetchingAssignment ||
             !surveyElement.saId ||
             surveyElement.atFirst
@@ -257,9 +252,7 @@ function SurveyTray() {
         </Button>
         <Button
           title={
-            nsiPrefetching
-              ? "Loading NSI structures…"
-              : surveyElement.fetchingAssignment
+            surveyElement.fetchingAssignment
               ? "Loading…"
               : surveyElement.allCompleted
               ? surveyElement.noAssignment === "all-done"
@@ -272,7 +265,6 @@ function SurveyTray() {
               : "Get Next Survey Element"
           }
           disabled={
-            nsiPrefetching ||
             surveyElement.isLoading ||
             surveyElement.fetchingAssignment ||
             surveyElement.awaitingSubmit ||
@@ -282,7 +274,7 @@ function SurveyTray() {
           onClick={doSurveyFetchNext}
           style={{ padding: "2px" }}
         >
-          <i>{nsiPrefetching || surveyElement.isLoading || surveyElement.fetchingAssignment ? "LOADING…" : "NEXT"}</i>
+          <i>{surveyElement.isLoading || surveyElement.fetchingAssignment ? "LOADING…" : "NEXT"}</i>
         </Button>
         <Button
           title="Submit Survey Element"
@@ -336,7 +328,7 @@ function SurveyTray() {
             marginBottom: "5px",
           }}
         >
-          {surveyElement.isLoading || nsiPrefetching
+          {surveyElement.isLoading
             ? "Loading assignment…"
             : surveyElement.allCompleted
             ? surveyElement.noAssignment === "all-done"

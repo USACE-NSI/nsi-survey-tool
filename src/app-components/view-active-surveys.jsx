@@ -50,10 +50,10 @@ export default function ViewActiveSurveys() {
   };
 
   const openMap = (survey) => {
-    // autoAdvance defers the first NEXT until the survey's NSI structures are
-    // prefetched into memory, then auto-loads the first assignment so it
-    // hydrates from the warm cache. The tray's entry form stays disabled
-    // (isLoading) for the whole select → prefetch → NEXT chain.
+    // autoAdvance auto-loads the first assignment once the perimeter has
+    // loaded; the element's NSI structure is fetched on demand by
+    // doAutofillFromNsi. The tray's entry form stays disabled (isLoading) for
+    // the whole select → NEXT chain.
     doSelectSurvey(survey, { autoAdvance: true });
     doUpdateUrl("/survey");
   };
