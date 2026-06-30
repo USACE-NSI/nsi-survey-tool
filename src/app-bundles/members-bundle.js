@@ -25,10 +25,27 @@ const membersBundle = {
           dispatch({ type: "MEMBERS_FETCH_FINISH", payload: { list: [] } });
           return;
         }
-        // Keep both userId and userName — POST flows need userId to populate SurveyMember rows.
-        const list = Array.isArray(body)
-          ? body.filter((u) => u && u.userName && u.userId)
-          : [];
+        // Normalize the /api/users response into a plain array of {userId, userName}.
+        // Tolerate the shapes the server has returned at 200: a bare array, a
+        // double-encoded JSON string, or an array nested under a wrapper key
+        // (users/data/items/results). Without this a non-array body silently
+        // collapsed the roster to [] and the surveyor dropdown rendered empty.
+        let data = body;
+        if (typeof data === "string") {
+          try { data = JSON.parse(data); } catch { data = []; }
+        }
+        if (data && !Array.isArray(data) && typeof data === "object") {
+          data =
+            data.users || data.data || data.items || data.results ||
+            Object.values(data).find(Array.isArray) || [];
+        }
+        // Accept both camelCase (userId/userName) and snake_case (user_id/user_name).
+        const list = (Array.isArray(data) ? data : [])
+          .map((u) => (u && typeof u === "object")
+            ? { userId: u.userId ?? u.user_id, userName: u.userName ?? u.user_name }
+            : null)
+          // Keep both fields — POST flows need userId to populate SurveyMember rows.
+          .filter((u) => u && u.userName && u.userId);
         dispatch({ type: "MEMBERS_FETCH_FINISH", payload: { list } });
       });
     },
