@@ -12,8 +12,12 @@
 // apiPost (which would attach our internal Keycloak bearer token).
 //
 // survey.perimeterGeometry is a stringified bare GeoJSON geometry
-// (Polygon or MultiPolygon) — the NSI API expects a FeatureCollection, so
-// we wrap it before posting.
+// (Polygon or MultiPolygon). The NSI API only accepts a FeatureCollection
+// holding a single Feature with a single Polygon, so before posting we wrap it
+// and collapse any multi-part / multi-feature perimeter to its convex hull.
+// Because the hull also covers the gaps between parts (and any holes), each
+// streamed structure is then point-in-polygon tested against the original
+// perimeter, so structures outside it are never counted or sampled.
 // Relative paths; the Vite dev server proxies /nsiapi to
 // https://nsi.sec.usace.army.mil (see vite.config.js) to sidestep CORS. The
 // same reverse-proxy mapping must exist in production deployments, and it must
@@ -32,7 +36,7 @@ const NSI_STREAM_URL = (source) =>
 const NSI_STRUCTURE_URL = (fdId, source) =>
   `${NSI_BASE}/nsiapi/${
     source ? `${encodeURIComponent(source)}/` : ""
-  }structures/fd_id/${encodeURIComponent(fdId)}`;
+  }structure/fd_id/${encodeURIComponent(fdId)}`;
 
 // RFC 8142 record separator: each feature in the stream is prefixed by RS and
 // terminated by a line feed.
@@ -119,27 +123,157 @@ const shuffle = (arr) => {
   return arr;
 };
 
-// Build the FeatureCollection POST body NSI expects from the survey's bare
-// Polygon/MultiPolygon perimeter. MultiPolygons expand into one Feature per
-// polygon.
-const perimeterToFeatureCollection = (geometry) => {
-  if (geometry.type === "Polygon") {
-    return {
-      type: "FeatureCollection",
-      features: [{ type: "Feature", geometry, properties: {} }],
-    };
+// Recursively collect every [x, y] position out of a GeoJSON geometry's nested
+// coordinate arrays (works for Polygon, MultiPolygon, and GeometryCollection).
+const collectPositions = (geometry, out) => {
+  if (!geometry) return out;
+  if (geometry.type === "GeometryCollection") {
+    (geometry.geometries || []).forEach((g) => collectPositions(g, out));
+    return out;
   }
-  if (geometry.type === "MultiPolygon") {
-    return {
-      type: "FeatureCollection",
-      features: geometry.coordinates.map((coords) => ({
-        type: "Feature",
-        geometry: { type: "Polygon", coordinates: coords },
-        properties: {},
-      })),
-    };
+  const walk = (node) => {
+    if (Array.isArray(node) && typeof node[0] === "number") {
+      out.push(node);
+    } else if (Array.isArray(node)) {
+      node.forEach(walk);
+    }
+  };
+  walk(geometry.coordinates);
+  return out;
+};
+
+// Andrew's monotone chain convex hull. Takes [x, y] points and returns a
+// closed, counter-clockwise ring (first point repeated at the end) suitable as
+// a GeoJSON Polygon's exterior ring.
+const convexHull = (points) => {
+  const sorted = points
+    .map((p) => [p[0], p[1]])
+    .sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const pts = sorted.filter(
+    (p, i) => i === 0 || p[0] !== sorted[i - 1][0] || p[1] !== sorted[i - 1][1],
+  );
+  if (pts.length < 3) {
+    throw new Error("Perimeter has too few distinct points for a convex hull");
   }
-  throw new Error(`Unsupported perimeter geometry type: ${geometry.type}`);
+  const cross = (o, a, b) =>
+    (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const half = (input) => {
+    const stack = [];
+    for (const p of input) {
+      while (
+        stack.length >= 2 &&
+        cross(stack[stack.length - 2], stack[stack.length - 1], p) <= 0
+      ) {
+        stack.pop();
+      }
+      stack.push(p);
+    }
+    stack.pop(); // drop the last point; it's the first point of the other half
+    return stack;
+  };
+  const hull = half(pts).concat(half(pts.slice().reverse()));
+  hull.push(hull[0]); // close the ring
+  return hull;
+};
+
+// Flatten arbitrary GeoJSON into a list of Polygon ring-sets (each entry is
+// [exteriorRing, ...holeRings]), descending through Feature, FeatureCollection,
+// and GeometryCollection wrappers.
+const collectPolygons = (geojson, out) => {
+  if (!geojson) return out;
+  switch (geojson.type) {
+    case "FeatureCollection":
+      (geojson.features || []).forEach((f) => collectPolygons(f, out));
+      break;
+    case "Feature":
+      collectPolygons(geojson.geometry, out);
+      break;
+    case "GeometryCollection":
+      (geojson.geometries || []).forEach((g) => collectPolygons(g, out));
+      break;
+    case "Polygon":
+      out.push(geojson.coordinates);
+      break;
+    case "MultiPolygon":
+      geojson.coordinates.forEach((rings) => out.push(rings));
+      break;
+  }
+  return out;
+};
+
+// Pull the [lon, lat] location out of a streamed NSI structure feature. The
+// fmt=fs stream carries a Point geometry; we fall back to the x/y properties.
+const featurePoint = (feature) => {
+  const g = feature && feature.geometry;
+  if (g && g.type === "Point" && Array.isArray(g.coordinates)) {
+    return g.coordinates;
+  }
+  const p = (feature && feature.properties) || {};
+  if (Number.isFinite(p.x) && Number.isFinite(p.y)) return [p.x, p.y];
+  return null;
+};
+
+// Ray-casting point-in-ring test. ring is an array of [x, y]; the closing
+// point being present or not doesn't matter.
+const pointInRing = (x, y, ring) => {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i];
+    const [xj, yj] = ring[j];
+    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) {
+      inside = !inside;
+    }
+  }
+  return inside;
+};
+
+// True when [x, y] falls inside any of the polygons — inside an exterior ring
+// and outside that polygon's holes.
+const pointInPolygons = (x, y, polygons) =>
+  polygons.some(
+    (rings) =>
+      pointInRing(x, y, rings[0]) &&
+      !rings.slice(1).some((hole) => pointInRing(x, y, hole)),
+  );
+
+// Build the NSI request from the survey's perimeter GeoJSON. NSI only accepts a
+// FeatureCollection holding one Feature with one Polygon, so:
+//   - a lone Polygon is posted unchanged (holes and all) and needs no filtering
+//   - anything multi-part (MultiPolygon or several features) is posted as the
+//     convex hull of every part — the tightest single polygon still enclosing
+//     the whole perimeter — and we return a `withinPerimeter` predicate so the
+//     caller can discard structures NSI returns from the gaps and holes the
+//     hull spans but the true perimeter excludes.
+// Returns { body, withinPerimeter }; withinPerimeter is null when the posted
+// polygon already matches the perimeter exactly.
+const buildNsiRequest = (geojson) => {
+  let geometries;
+  if (geojson.type === "FeatureCollection") {
+    geometries = (geojson.features || [])
+      .map((f) => f && f.geometry)
+      .filter(Boolean);
+  } else if (geojson.type === "Feature") {
+    geometries = geojson.geometry ? [geojson.geometry] : [];
+  } else {
+    geometries = [geojson];
+  }
+  if (geometries.length === 0) {
+    throw new Error("Perimeter GeoJSON contains no geometry");
+  }
+  const wrap = (geometry) => ({
+    type: "FeatureCollection",
+    features: [{ type: "Feature", geometry, properties: {} }],
+  });
+  if (geometries.length === 1 && geometries[0].type === "Polygon") {
+    return { body: wrap(geometries[0]), withinPerimeter: null };
+  }
+  const positions = geometries.reduce((acc, g) => collectPositions(g, acc), []);
+  const hull = { type: "Polygon", coordinates: [convexHull(positions)] };
+  const polygons = collectPolygons(geojson, []);
+  return {
+    body: wrap(hull),
+    withinPerimeter: (x, y) => pointInPolygons(x, y, polygons),
+  };
 };
 
 // Streaming stratified sampler. Build one of these per generate run, feed it
@@ -291,9 +425,10 @@ const nsiBundle = {
         return;
       }
       let body;
+      let withinPerimeter;
       try {
         const geometry = typeof raw === "string" ? JSON.parse(raw) : raw;
-        body = perimeterToFeatureCollection(geometry);
+        ({ body, withinPerimeter } = buildNsiRequest(geometry));
       } catch (prepErr) {
         console.error("Failed to prepare NSI request body:", prepErr);
         dispatch({ type: "NSI_FETCH_ERROR", payload: prepErr.message });
@@ -311,7 +446,10 @@ const nsiBundle = {
 
       // Parse one RFC 8142 record (RS-delimited; may carry a trailing LF) and
       // feed it to the reservoir. Malformed records are skipped rather than
-      // aborting the whole stream.
+      // aborting the whole stream. When the perimeter was collapsed to a hull
+      // for the request, withinPerimeter drops structures that fall outside the
+      // user's true (multi-part / holed) perimeter so they're never counted in
+      // the population or sampled.
       const handleRecord = (text) => {
         const trimmed = text.trim();
         if (!trimmed) return;
@@ -320,6 +458,10 @@ const nsiBundle = {
           feature = JSON.parse(trimmed);
         } catch {
           return;
+        }
+        if (withinPerimeter) {
+          const point = featurePoint(feature);
+          if (!point || !withinPerimeter(point[0], point[1])) return;
         }
         reservoir.add(feature);
         processed += 1;
@@ -418,7 +560,14 @@ const nsiBundle = {
       fetch(NSI_STRUCTURE_URL(fdId, source), { method: "GET" })
         .then((resp) => {
           if (!resp.ok) {
-            throw new Error(`NSI structure ${fdId} returned a ${resp.status}`);
+            // Attach the HTTP status (and the source) to the error so callers can
+            // tell "this fd_id isn't in the inventory" (404) apart from a
+            // transient backend failure (5xx) and message the surveyor accordingly.
+            const err = new Error(`NSI structure ${fdId} returned a ${resp.status}`);
+            err.status = resp.status;
+            err.fdId = fdId;
+            err.source = source || null;
+            throw err;
           }
           return resp.json();
         })

@@ -317,6 +317,35 @@ function SurveyTray() {
       >
         {`${survey?.completedCount ?? 0} of ${survey?.totalCount ?? 0}`}
       </div>
+      {surveyElement.structureError && (
+        <div
+          role="alert"
+          style={{
+            margin: "8px 12px",
+            padding: "8px 10px",
+            border: "1px solid #d9534f",
+            borderRadius: "4px",
+            backgroundColor: "#f9e3e3",
+            color: "#a02622",
+            fontSize: "12px",
+          }}
+        >
+          <div style={{ fontWeight: "bold", marginBottom: "2px" }}>
+            {surveyElement.structureError.status === 404
+              ? "Structure not found in inventory"
+              : "Could not load structure"}
+          </div>
+          {surveyElement.structureError.status === 404
+            ? `Assigned structure ${surveyElement.structureError.fdId} is not in the ${
+                survey?.inventorySource || surveyElement.structureError.source || "selected"
+              } inventory source. Mark it as not a valid structure and submit, or click NEXT to skip it.`
+            : `The inventory source could not return structure ${surveyElement.structureError.fdId}${
+                surveyElement.structureError.status
+                  ? ` (HTTP ${surveyElement.structureError.status})`
+                  : ""
+              }. Click NEXT to try the following assignment, or try again later.`}
+        </div>
+      )}
       {!surveyReady && (
         <div
           style={{

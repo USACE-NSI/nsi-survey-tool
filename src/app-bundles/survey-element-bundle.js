@@ -67,6 +67,14 @@ const defaultSurvey = {
   //   "" (default)    not in the no-assignment state
   allCompleted: false,
   noAssignment: "",
+  // Set when the live NSI lookup for this assignment's fd_id fails, so the tray
+  // can warn the surveyor that the assigned structure couldn't be loaded from
+  // the inventory source instead of silently presenting a default, unhydrated
+  // form. Shape: { fdId, status, source, message }. status is the HTTP status
+  // (404 => the fd_id isn't in this inventory; 5xx/0 => a transient/backend
+  // failure). Rides on defaultSurvey, so it clears automatically the moment a
+  // new assignment loads (...defaultSurvey, ...body) or a survey is reselected.
+  structureError: null,
 }
 const surveyElementBundle = {
     name: 'surveyElement',
@@ -198,6 +206,40 @@ const surveyElementBundle = {
         },
         onError: (err) => {
           console.error(`Failed to autofill survey element from NSI for fd_id ${fdId}:`, err);
+          // Same stale-survey guard as onSuccess: if the surveyor switched
+          // surveys while this lookup was in flight, the assignment this error
+          // belongs to is no longer on screen, so don't stamp an error onto the
+          // new survey's element.
+          const activeSurvey = store.selectSurvey();
+          const activeSurveyId = activeSurvey && activeSurvey.id;
+          if (activeSurveyId !== requestSurveyId) {
+            console.log(
+              `doAutofillFromNsi: discarding stale NSI error for fd_id ${fdId} (survey ${requestSurveyId} → ${activeSurveyId})`,
+            );
+            return;
+          }
+          // Surface the failure to the tray. The assignment row (saId/fdId) is
+          // already loaded, so isLoading is settled and the form would otherwise
+          // unlock with default values; structureError lets the tray show a
+          // warning and lock entry so the surveyor doesn't submit data for a
+          // structure that isn't in the inventory source.
+          dispatch({
+            type: "SURVEY_LOADED",
+            payload: {
+              surveyElement: {
+                structureError: {
+                  fdId,
+                  status: (err && err.status) || null,
+                  source: (err && err.source) || null,
+                  message: (err && err.message) || "NSI structure lookup failed",
+                },
+                // The structure never hydrated, so there are no surveyor edits to
+                // protect — release the NEXT gate so they can skip past the bad
+                // assignment (or mark it invalid and submit) instead of being stuck.
+                awaitingSubmit: false,
+              },
+            },
+          });
         },
       });
     },
