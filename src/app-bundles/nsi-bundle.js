@@ -20,13 +20,19 @@
 // stream the response through (e.g. nginx `proxy_buffering off;`) or the
 // memory win is lost to proxy-side buffering.
 const NSI_BASE = import.meta.env.VITE_NSI_BASE || "";
-const NSI_STREAM_URL = `${NSI_BASE}/nsiapi/structures?fmt=fs`;
+// The inventory source (e.g. nsi2022, nsi2026) is an optional path segment on
+// the NSI API: /nsiapi/<source>/structures. When a survey has no source we omit
+// it and the API serves its default inventory.
+const NSI_STREAM_URL = (source) =>
+  `${NSI_BASE}/nsiapi/${source ? `${encodeURIComponent(source)}/` : ""}structures?fmt=fs`;
 // Single-structure lookup by fd_id. The fd_id is a path segment; the relative
 // /nsiapi path is proxied to https://nsi.sec.usace.army.mil by the Vite dev
 // server (see vite.config.js), which sidesteps CORS. So this resolves to
 // /nsiapi/structures/fd_id/523367802 -> nsi.sec.usace.army.mil/nsiapi/structures/fd_id/523367802
-const NSI_STRUCTURE_URL = (fdId) =>
-  `${NSI_BASE}/nsiapi/structures/fd_id/${encodeURIComponent(fdId)}`;
+const NSI_STRUCTURE_URL = (fdId, source) =>
+  `${NSI_BASE}/nsiapi/${
+    source ? `${encodeURIComponent(source)}/` : ""
+  }structures/fd_id/${encodeURIComponent(fdId)}`;
 
 // RFC 8142 record separator: each feature in the stream is prefixed by RS and
 // terminated by a line feed.
@@ -325,7 +331,7 @@ const nsiBundle = {
 
       (async () => {
         try {
-          const resp = await fetch(NSI_STREAM_URL, {
+          const resp = await fetch(NSI_STREAM_URL(survey.inventorySource), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body),
@@ -400,14 +406,16 @@ const nsiBundle = {
   // holds more than the structures actually being viewed in memory.
   doFetchNsiStructure:
     (fdId, { onSuccess, onError } = {}) =>
-    () => {
+    ({ store }) => {
       if (fdId == null || fdId === "") {
         const err = new Error("doFetchNsiStructure requires an fd_id");
         console.error(err.message);
         if (typeof onError === "function") onError(err);
         return;
       }
-      fetch(NSI_STRUCTURE_URL(fdId), { method: "GET" })
+      const survey = store.selectSurvey();
+      const source = survey && survey.inventorySource;
+      fetch(NSI_STRUCTURE_URL(fdId, source), { method: "GET" })
         .then((resp) => {
           if (!resp.ok) {
             throw new Error(`NSI structure ${fdId} returned a ${resp.status}`);

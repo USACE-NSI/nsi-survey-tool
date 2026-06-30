@@ -71,11 +71,11 @@ export default function GenerateStratifiedSurvey() {
     return `${minutes}:${String(seconds).padStart(2, "0")}`;
   };
 
-  // Options arrays remain the same...
+  // NSI inventory options. `val` is the API source slug (the optional path
+  // segment in /nsiapi/<source>/structures); display is the human label.
   const inventories = [
-    { val: "2022", display: "NSI 2022" },
-    { val: "2026", display: "NSI 2026" },
-    { val: "USER", display: "USER PROVIDED 1" },
+    { val: "nsi2022", display: "NSI 2022" },
+    { val: "nsi2026", display: "NSI 2026" },
   ];
   const confidence = [
     { val: 0.95, display: "95%" },
