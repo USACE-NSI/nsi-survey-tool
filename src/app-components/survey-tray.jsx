@@ -238,57 +238,61 @@ function SurveyTray() {
       <div
         style={{ padding: "5px", gap: "5px", display: "flex", flexShrink: 0 }}
       >
-        <Button
-          title={
-            surveyElement.fetchingAssignment
-              ? "Loading…"
-              : !surveyElement.saId
-                ? "Click NEXT to load an assignment first"
-                : surveyElement.atFirst
-                  ? "Already at the first assignment"
-                  : "Get Previous Survey Element"
-          }
-          disabled={
-            surveyElement.fetchingAssignment ||
-            !surveyElement.saId ||
-            surveyElement.atFirst
-          }
-          className="btn btn-secondary basic-toolbar-btn st-btn-tb1"
-          onClick={doSurveyFetchPrevious}
-          style={{ padding: "2px" }}
-        >
-          <i>PREVIOUS</i>
-        </Button>
-        <Button
-          title={
-            surveyElement.fetchingAssignment
-              ? "Loading…"
-              : surveyElement.allCompleted
-                ? surveyElement.noAssignment === "all-done"
-                  ? "All structures in this survey have been surveyed"
-                  : surveyElement.noAssignment === "no-elements"
-                    ? "This survey has no structures to assign"
-                    : "No structures are currently assignable to you"
-                : surveyElement.awaitingSubmit
-                  ? "Submit this element or go to the previous one before loading the next"
-                  : "Get Next Survey Element"
-          }
-          disabled={
-            surveyElement.isLoading ||
-            surveyElement.fetchingAssignment ||
-            surveyElement.awaitingSubmit ||
-            surveyElement.allCompleted
-          }
-          className="btn btn-secondary basic-toolbar-btn st-btn-tb1"
-          onClick={doSurveyFetchNext}
-          style={{ padding: "2px" }}
-        >
-          <i>
-            {surveyElement.isLoading || surveyElement.fetchingAssignment
-              ? "LOADING…"
-              : "NEXT"}
-          </i>
-        </Button>
+        <div style={{ flex: 1 }}>
+          <Button
+            title={
+              surveyElement.fetchingAssignment
+                ? "Loading…"
+                : !surveyElement.saId
+                  ? "Click NEXT to load an assignment first"
+                  : surveyElement.atFirst
+                    ? "Already at the first assignment"
+                    : "Get Previous Survey Element"
+            }
+            disabled={
+              surveyElement.fetchingAssignment ||
+              !surveyElement.saId ||
+              surveyElement.atFirst
+            }
+            className="btn btn-secondary basic-toolbar-btn st-btn-tb1"
+            onClick={doSurveyFetchPrevious}
+            style={{ width: "100%" }}
+          >
+            <i>PREVIOUS</i>
+          </Button>
+        </div>
+        <div style={{ flex: 1 }}>
+          <Button
+            title={
+              surveyElement.fetchingAssignment
+                ? "Loading…"
+                : surveyElement.allCompleted
+                  ? surveyElement.noAssignment === "all-done"
+                    ? "All structures in this survey have been surveyed"
+                    : surveyElement.noAssignment === "no-elements"
+                      ? "This survey has no structures to assign"
+                      : "No structures are currently assignable to you"
+                  : surveyElement.awaitingSubmit
+                    ? "Submit this element or go to the previous one before loading the next"
+                    : "Get Next Survey Element"
+            }
+            disabled={
+              surveyElement.isLoading ||
+              surveyElement.fetchingAssignment ||
+              surveyElement.awaitingSubmit ||
+              surveyElement.allCompleted
+            }
+            className="btn btn-secondary basic-toolbar-btn st-btn-tb1"
+            onClick={doSurveyFetchNext}
+            style={{ width: "100%" }}
+          >
+            <i>
+              {surveyElement.isLoading || surveyElement.fetchingAssignment
+                ? "LOADING…"
+                : "NEXT"}
+            </i>
+          </Button>
+        </div>
       </div>
 
       <div
