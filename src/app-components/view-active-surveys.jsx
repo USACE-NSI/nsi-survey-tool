@@ -164,7 +164,9 @@ export default function ViewActiveSurveys() {
                           )
                         }
                         className={`gw-p-2 gw-rounded-md ${
-                          item.owners?.includes(authUsername) || isAdmin
+                          item.members?.includes(authUsername) ||
+                          item.owners?.includes(authUsername) ||
+                          isAdmin
                             ? "gw-bg-gray-600 hover:gw-bg-gray-600 gw-text-white"
                             : "gw-bg-red-600 gw-text-white"
                         }`}
