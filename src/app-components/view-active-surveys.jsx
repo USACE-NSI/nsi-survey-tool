@@ -156,20 +156,7 @@ export default function ViewActiveSurveys() {
 
                     <Tooltip title="View Statistics">
                       <Button
-                        disabled={
-                          !(
-                            item.members?.includes(authUsername) ||
-                            item.owners?.includes(authUsername) ||
-                            isAdmin
-                          )
-                        }
-                        className={`gw-p-2 gw-rounded-md ${
-                          item.members?.includes(authUsername) ||
-                          item.owners?.includes(authUsername) ||
-                          isAdmin
-                            ? "gw-bg-gray-600 hover:gw-bg-gray-600 gw-text-white"
-                            : "gw-bg-red-600 gw-text-white"
-                        }`}
+                        className="gw-p-2 gw-bg-gray-600 hover:gw-bg-gray-600 gw-text-white gw-rounded-md"
                         onClick={() => openResults(item)}
                       >
                         <BarChartIcon fontSize="small" />
@@ -178,9 +165,11 @@ export default function ViewActiveSurveys() {
 
                     <Tooltip title="Manage Settings">
                       <Button
-                        disabled={!item.owners?.includes(authUsername)}
+                        disabled={
+                          !item.owners?.includes(authUsername) || isAdmin
+                        }
                         className={`gw-p-2 gw-rounded-md ${
-                          item.owners?.includes(authUsername)
+                          item.owners?.includes(authUsername) || isAdmin
                             ? "gw-bg-gray-600 hover:gw-bg-gray-600 gw-text-white"
                             : "gw-bg-red-600 gw-text-white"
                         }`}

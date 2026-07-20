@@ -119,20 +119,7 @@ export default function ViewCompletedSurveys() {
                   <div className="gw-flex gw-justify-left gw-gap-2">
                     <Tooltip title="View Detailed Statistics">
                       <Button
-                        disabled={
-                          !(
-                            item.members?.includes(authUsername) ||
-                            item.owners?.includes(authUsername) ||
-                            isAdmin
-                          )
-                        }
-                        className={`gw-p-2 gw-rounded-md ${
-                          item.members?.includes(authUsername) ||
-                          item.owners?.includes(authUsername) ||
-                          isAdmin
-                            ? "gw-bg-gray-600 hover:gw-bg-gray-600/80 gw-text-white"
-                            : "gw-bg-red-600 gw-text-white"
-                        }`}
+                        className="gw-p-2 gw-bg-gray-600 hover:gw-bg-gray-600 gw-text-white gw-rounded-md"
                         onClick={() => openResults(item)}
                       >
                         <BarChartIcon fontSize="small" />
@@ -141,9 +128,11 @@ export default function ViewCompletedSurveys() {
 
                     <Tooltip title="Manage Archive">
                       <Button
-                        disabled={!item.owners?.includes(authUsername)}
+                        disabled={
+                          !item.owners?.includes(authUsername) || isAdmin
+                        }
                         className={`gw-p-2 gw-rounded-md ${
-                          item.owners?.includes(authUsername)
+                          item.owners?.includes(authUsername) || isAdmin
                             ? "gw-bg-gray-600 hover:gw-bg-gray-600/80 gw-text-white"
                             : "gw-bg-red-600 gw-text-white"
                         }`}
