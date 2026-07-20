@@ -180,7 +180,7 @@ function SurveyTray() {
     "doSurveySubmit",
     "doSurveyUpdateData",
     "doSurveyElementInvalid",
-    "doSurveyDrawSqft"
+    "doSurveyDrawSqft",
   );
 
   // The entry form stays locked until a real assignment is presented. "View
@@ -227,17 +227,26 @@ function SurveyTray() {
     doSurveyElementInvalid();
   };
   return (
-    <div style={{ height: "83vh", overflowY: "auto" }}>
-      <div style={{ padding: "5px", gap: "5px", display: "flex" }}>
+    <div
+      style={{
+        height: "83vh",
+        overflowY: "auto",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      <div
+        style={{ padding: "5px", gap: "5px", display: "flex", flexShrink: 0 }}
+      >
         <Button
           title={
             surveyElement.fetchingAssignment
               ? "Loading…"
               : !surveyElement.saId
-              ? "Click NEXT to load an assignment first"
-              : surveyElement.atFirst
-              ? "Already at the first assignment"
-              : "Get Previous Survey Element"
+                ? "Click NEXT to load an assignment first"
+                : surveyElement.atFirst
+                  ? "Already at the first assignment"
+                  : "Get Previous Survey Element"
           }
           disabled={
             surveyElement.fetchingAssignment ||
@@ -255,14 +264,14 @@ function SurveyTray() {
             surveyElement.fetchingAssignment
               ? "Loading…"
               : surveyElement.allCompleted
-              ? surveyElement.noAssignment === "all-done"
-                ? "All structures in this survey have been surveyed"
-                : surveyElement.noAssignment === "no-elements"
-                ? "This survey has no structures to assign"
-                : "No structures are currently assignable to you"
-              : surveyElement.awaitingSubmit
-              ? "Submit this element or go to the previous one before loading the next"
-              : "Get Next Survey Element"
+                ? surveyElement.noAssignment === "all-done"
+                  ? "All structures in this survey have been surveyed"
+                  : surveyElement.noAssignment === "no-elements"
+                    ? "This survey has no structures to assign"
+                    : "No structures are currently assignable to you"
+                : surveyElement.awaitingSubmit
+                  ? "Submit this element or go to the previous one before loading the next"
+                  : "Get Next Survey Element"
           }
           disabled={
             surveyElement.isLoading ||
@@ -274,16 +283,11 @@ function SurveyTray() {
           onClick={doSurveyFetchNext}
           style={{ padding: "2px" }}
         >
-          <i>{surveyElement.isLoading || surveyElement.fetchingAssignment ? "LOADING…" : "NEXT"}</i>
-        </Button>
-        <Button
-          title="Submit Survey Element"
-          disabled={surveyElement.survey_element_invalid}
-          className="btn btn-secondary basic-toolbar-btn st-btn-tb1"
-          onClick={doSurveySubmit}
-          style={{ padding: "2px" }}
-        >
-          <i>SUBMIT</i>
+          <i>
+            {surveyElement.isLoading || surveyElement.fetchingAssignment
+              ? "LOADING…"
+              : "NEXT"}
+          </i>
         </Button>
       </div>
 
@@ -337,7 +341,9 @@ function SurveyTray() {
           </div>
           {surveyElement.structureError.status === 404
             ? `Assigned structure ${surveyElement.structureError.fdId} is not in the ${
-                survey?.inventorySource || surveyElement.structureError.source || "selected"
+                survey?.inventorySource ||
+                surveyElement.structureError.source ||
+                "selected"
               } inventory source. Mark it as not a valid structure and submit, or click NEXT to skip it.`
             : `The inventory source could not return structure ${surveyElement.structureError.fdId}${
                 surveyElement.structureError.status
@@ -360,422 +366,442 @@ function SurveyTray() {
           {surveyElement.isLoading
             ? "Loading assignment…"
             : surveyElement.allCompleted
-            ? surveyElement.noAssignment === "all-done"
-              ? "All structures in this survey have been surveyed."
-              : surveyElement.noAssignment === "no-elements"
-              ? "This survey has no structures to assign — check that generation/save succeeded."
-              : "No structures are currently assignable to you."
-            : "No assignment loaded."}
+              ? surveyElement.noAssignment === "all-done"
+                ? "All structures in this survey have been surveyed."
+                : surveyElement.noAssignment === "no-elements"
+                  ? "This survey has no structures to assign — check that generation/save succeeded."
+                  : "No structures are currently assignable to you."
+              : "No assignment loaded."}
         </div>
       )}
       {/* Entry stays locked until a valid assignment is presented. A disabled
           fieldset natively disables every input/select/button it contains; the
           PREVIOUS/NEXT/SUBMIT toolbar above is intentionally left outside it. */}
-      <fieldset
-        disabled={!surveyReady}
-        style={{ border: 0, padding: 0, margin: 0, minInlineSize: 0 }}
-      >
-      <div
-        className="form-check"
-        style={{ marginLeft: "20px", marginBottom: "5px" }}
-      >
-        <input
-          type="checkbox"
-          className="form-check-input"
-          id="validStructure"
-          onChange={handleCheckedChange("invalidStructure")}
-          checked={surveyElement.invalidStructure}
-        />
-        <label
-          className="form-check-label"
-          style={{ marginLeft: "5px", marginTop: "2px" }}
-          htmlFor="validStructure"
+      <div style={{ flex: 1, overflowY: "auto" }}>
+        <fieldset
+          disabled={!surveyReady}
+          style={{ border: 0, padding: 0, margin: 0, minInlineSize: 0 }}
         >
-          This is NOT a valid structure
-        </label>
-      </div>
-
-      <div
-        className="form-check"
-        style={{ marginLeft: "20px", marginBottom: "5px" }}
-      >
-        <input
-          type="checkbox"
-          className="form-check-input"
-          id="noStreetView"
-          onChange={handleCheckedChange("noStreetView")}
-          checked={surveyElement.noStreetView}
-        />
-        <label
-          className="form-check-label"
-          style={{ marginLeft: "5px", marginTop: "2px" }}
-          htmlFor="noStreetView"
-        >
-          There is no Street View
-        </label>
-      </div>
-
-      <div className="card border-secondary mb-3 st-card">
-        <div className="card-header st-card-header">Location Information</div>
-
-        <div className="st-card-body">
-          <div style={{ fontsize: "12px", lineheight: "31px" }}>
-            <div style={{ display: "flex" }}>
-              <div style={{ paddingright: "5px" }}>X:</div>
-              <input
-                type="text"
-                value={surveyElement.x}
-                className="form-control st-input"
-                id="xcoord"
-                placeholder=""
-                onChange={handleChange("x")}
-                onBlur={numberValidation("x", "x_invalid", "dbl")}
-              />
-            </div>
-            <div style={{ display: "flex" }}>
-              <div style={{ paddingright: "5px" }}>Y:</div>
-              <input
-                type="text"
-                value={surveyElement.y}
-                className="form-control st-input"
-                id="ycoord"
-                placeholder=""
-                onChange={handleChange("y")}
-                onBlur={numberValidation("y", "y_invalid", "dbl")}
-              />
-            </div>
-          </div>
-        </div>
-        <div className="gw-flex w-full mt-2" role="group">
-          <Button
-            className="gw-flex-1 bg-secondary border-r border-white/20 px-4 py-2 first:rounded-l-md last:rounded-r-md st-btn-tb"
-            onClick={doSurveyModifyXY}
-          >
-            <i className="mdi mdi-map-marker-plus" />
-          </Button>
-          <Button
-            className="gw-flex-1 bg-secondary border-r border-white/20 px-4 py-2 st-btn-tb"
-            onClick={doSurveySetZoom}
-          >
-            <i className="mdi mdi-magnify-plus" />
-          </Button>
-          <Button
-            className="gw-flex-1 bg-secondary px-4 py-2 last:rounded-r-md st-btn-tb"
-            onClick={doSurveyStreetView}
-          >
-            <i className="mdi mdi-google-street-view" />
-          </Button>
-        </div>
-      </div>
-      <div className="card border-secondary mb-3 st-card">
-        <div className="card-header st-card-header">Categories</div>
-        <div className="card-body st-card-body">
-          <div className="form-group">
-            <div style={{ display: "flex" }}>
-              <label style={{ flexGrow: 1 }}>Damage Category</label>
-              <a
-                target="_blank"
-                title="Help for Damage Category"
-                href={`${fwLinkHost}nsi-survey-tool-damage-categories`}
-              >
-                <i className="mdi mdi-help-circle-outline" />
-              </a>
-            </div>
-            <select
-              className="form-control st-input"
-              id="damcat"
-              onChange={handleChange("damcat")}
-            >
-              {damcats.map((cat) =>
-                cat.val === surveyElement.damcat ? (
-                  <option value={cat.val} selected>
-                    {cat.display}
-                  </option>
-                ) : (
-                  <option value={cat.val}>{cat.display}</option>
-                )
-              )}
-            </select>
-          </div>
-          <div className="form-group">
-            <div style={{ display: "flex" }}>
-              <label style={{ flexGrow: 1 }}>Occupancy Type</label>
-              <a
-                target="_blank"
-                title="Help for Occupancy Type"
-                href={`${fwLinkHost}nsi-survey-tool-occupancy-types`}
-              >
-                <i className="mdi mdi-help-circle-outline" />
-              </a>
-            </div>
-            <select
-              className="form-control st-input"
-              id="occclass"
-              onChange={handleChange("occupancyType")}
-            >
-              {occs.Unknown.map((cat) =>
-                cat === surveyElement.occupancyType ? (
-                  <option selected>{cat}</option>
-                ) : (
-                  <option>{cat}</option>
-                )
-              )}
-            </select>
-          </div>
-        </div>
-      </div>
-
-      <div className="card border-secondary mb-3 st-card">
-        <div className="card-header st-card-header">Foundation</div>
-        <div className="card-body st-card-body">
-          <div className="form-group">
-            <div style={{ display: "flex" }}>
-              <label style={{ flexGrow: 1 }}>Foundation Type</label>
-              <a
-                target="_blank"
-                title="Help for Foundation Type"
-                href={`${fwLinkHost}nsi-survey-tool-foundation-type`}
-              >
-                <i className="mdi mdi-help-circle-outline" />
-              </a>
-            </div>
-            <select
-              className="form-control st-input"
-              id="foundtypes"
-              onChange={handleChange("found_type")}
-            >
-              {foundTypes.map((cat) =>
-                cat.val === surveyElement.found_type ? (
-                  <option value={cat.val} selected>
-                    {cat.display}
-                  </option>
-                ) : (
-                  <option value={cat.val}>{cat.display}</option>
-                )
-              )}
-            </select>
-          </div>
-          <div className="form-group">
-            <div style={{ display: "flex" }}>
-              <label style={{ flexGrow: 1 }}>Foundation Height(ft)</label>
-              <a
-                target="_blank"
-                title="Help for Foundation Height"
-                href={`${fwLinkHost}nsi-survey-tool-foundation-height`}
-              >
-                <i className="mdi mdi-help-circle-outline" />
-              </a>
-            </div>
-            <input
-              type="text"
-              value={surveyElement.found_ht}
-              className="form-control st-input"
-              id="foundheight"
-              placeholder=""
-              onChange={handleChange("found_ht")}
-              onBlur={numberValidation("found_ht", "foundHtInvalid", "dbl")}
-            />
-          </div>
-        </div>
-      </div>
-
-      <div className="card border-secondary mb-3 st-card">
-        <div className="card-header st-card-header">Attributes</div>
-        <div className="card-body st-card-body">
-          <div style={{ display: "flex" }}>
-            <label style={{ flexGrow: 1 }}>Replacement Type</label>
-            <a
-              target="_blank"
-              title="Help for Replacement Type"
-              href={`${fwLinkHost}nsi-survey-tool-replacement-type`}
-            >
-              <i className="mdi mdi-help-circle-outline" />
-            </a>
-          </div>
-          <select
-            className="form-control st-input"
-            id="occclass"
-            onChange={handleChange("replacement_type")}
-          >
-            {rsMeansTypes.Unknown.map((cat) =>
-              cat === surveyElement.replacement_type ? (
-                <option selected>{cat}</option>
-              ) : (
-                <option>{cat}</option>
-              )
-            )}
-          </select>
-
-          <div style={{ display: "flex" }}>
-            <label style={{ flexGrow: 1 }}>Quality</label>
-            <a
-              target="_blank"
-              title="Help for Quality"
-              href={`${fwLinkHost}nsi-survey-tool-replacement-quality`}
-            >
-              <i className="mdi mdi-help-circle-outline" />
-            </a>
-          </div>
-          <select
-            className="form-control st-input"
-            id="occclass"
-            onChange={handleChange("quality")}
-          >
-            {qualities.map((cat) =>
-              cat === surveyElement.quality ? (
-                <option selected>{cat}</option>
-              ) : (
-                <option>{cat}</option>
-              )
-            )}
-          </select>
-
-          <div style={{ display: "flex" }}>
-            <label style={{ flexGrow: 1 }}>Exterior Construction Type</label>
-            <a
-              target="_blank"
-              title="Help for Exterior Construction Types"
-              href={`${fwLinkHost}nsi-survey-tool-exterior-construction`}
-            >
-              <i className="mdi mdi-help-circle-outline" />
-            </a>
-          </div>
-          <select
-            className="form-control st-input"
-            id="occclass"
-            onChange={handleChange("const_type")}
-          >
-            {constTypes.map((cat) =>
-              cat === surveyElement.const_type ? (
-                <option selected>{cat}</option>
-              ) : (
-                <option>{cat}</option>
-              )
-            )}
-          </select>
-
-          <div style={{ display: "flex" }}>
-            <label style={{ flexGrow: 1 }}>Garage Type</label>
-            <a
-              target="_blank"
-              title="Help for Garage Types"
-              href={`${fwLinkHost}nsi-survey-tool-garage`}
-            >
-              <i className="mdi mdi-help-circle-outline" />
-            </a>
-          </div>
-          <select
-            className="form-control st-input"
-            id="occclass"
-            onChange={handleChange("garage")}
-          >
-            {garageTypes.map((cat) =>
-              cat === surveyElement.garage ? (
-                <option selected>{cat}</option>
-              ) : (
-                <option>{cat}</option>
-              )
-            )}
-          </select>
-
-          <div style={{ display: "flex" }}>
-            <label style={{ flexGrow: 1 }}>Roof Style</label>
-            <a
-              target="_blank"
-              title="Help for Roof Styles"
-              href={`${fwLinkHost}nsi-survey-tool-roof-style`}
-            >
-              <i className="mdi mdi-help-circle-outline" />
-            </a>
-          </div>
-          <select
-            className="form-control st-input"
-            id="occclass"
-            onChange={handleChange("roof_style")}
-          >
-            {roofStyles.map((cat) =>
-              cat === surveyElement.roof_style ? (
-                <option selected>{cat}</option>
-              ) : (
-                <option>{cat}</option>
-              )
-            )}
-          </select>
-
-          <div style={{ display: "flex" }}>
-            <label style={{ flexGrow: 1 }}>Number of Stories</label>
-            <a
-              target="_blank"
-              title="Help for Number of Stories"
-              href={`${fwLinkHost}nsi-survey-tool-stories`}
-            >
-              <i className="mdi mdi-help-circle-outline" />
-            </a>
-          </div>
-          <input
-            type="text"
-            value={surveyElement.stories}
-            className="form-control st-input"
-            placeholder=""
-            onChange={handleChange("stories")}
-            onBlur={numberValidation("stories", "storiesInvalid", "dbl")}
-          />
-
-          <div style={{ display: "flex" }}>
-            <label style={{ flexGrow: 1 }}>Occupied Footprint SQ Feet</label>
-            <a
-              target="_blank"
-              title="Help for Occupied SQ Feet"
-              href={`${fwLinkHost}nsi-survey-tool-square-footage`}
-            >
-              <i className="mdi mdi-help-circle-outline" />
-            </a>
-          </div>
           <div
-            className="draw-input-wrapper"
-            style={{
-              position: "relative",
-              display: "flex",
-              alignItems: "center",
-            }}
+            className="form-check"
+            style={{ marginLeft: "20px", marginBottom: "5px" }}
           >
             <input
-              type="text"
-              value={surveyElement.sq_ft}
-              className="form-control st-input"
-              placeholder=""
-              onChange={handleChange("sq_ft")}
-              onBlur={numberValidation("sq_ft", "sqFtInvalid", "dbl")}
+              type="checkbox"
+              className="form-check-input"
+              id="validStructure"
+              onChange={handleCheckedChange("invalidStructure")}
+              checked={surveyElement.invalidStructure}
             />
-            <div className="input-group-append">
-              <button
-                className="draw-overlay-btn"
-                type="button"
-                title="Draw area on map"
+            <label
+              className="form-check-label"
+              style={{ marginLeft: "5px", marginTop: "2px" }}
+              htmlFor="validStructure"
+            >
+              This is NOT a valid structure
+            </label>
+          </div>
+
+          <div
+            className="form-check"
+            style={{ marginLeft: "20px", marginBottom: "5px" }}
+          >
+            <input
+              type="checkbox"
+              className="form-check-input"
+              id="noStreetView"
+              onChange={handleCheckedChange("noStreetView")}
+              checked={surveyElement.noStreetView}
+            />
+            <label
+              className="form-check-label"
+              style={{ marginLeft: "5px", marginTop: "2px" }}
+              htmlFor="noStreetView"
+            >
+              There is no Street View
+            </label>
+          </div>
+
+          <div className="card border-secondary mb-3 st-card">
+            <div className="card-header st-card-header">
+              Location Information
+            </div>
+
+            <div className="st-card-body">
+              <div style={{ fontsize: "12px", lineheight: "31px" }}>
+                <div style={{ display: "flex" }}>
+                  <div style={{ paddingright: "5px" }}>X:</div>
+                  <input
+                    type="text"
+                    value={surveyElement.x}
+                    className="form-control st-input"
+                    id="xcoord"
+                    placeholder=""
+                    onChange={handleChange("x")}
+                    onBlur={numberValidation("x", "x_invalid", "dbl")}
+                  />
+                </div>
+                <div style={{ display: "flex" }}>
+                  <div style={{ paddingright: "5px" }}>Y:</div>
+                  <input
+                    type="text"
+                    value={surveyElement.y}
+                    className="form-control st-input"
+                    id="ycoord"
+                    placeholder=""
+                    onChange={handleChange("y")}
+                    onBlur={numberValidation("y", "y_invalid", "dbl")}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="gw-flex w-full mt-2" role="group">
+              <Button
+                className="gw-flex-1 bg-secondary border-r border-white/20 px-4 py-2 first:rounded-l-md last:rounded-r-md st-btn-tb"
+                onClick={doSurveyModifyXY}
+              >
+                <i className="mdi mdi-map-marker-plus" />
+              </Button>
+              <Button
+                className="gw-flex-1 bg-secondary border-r border-white/20 px-4 py-2 st-btn-tb"
+                onClick={doSurveySetZoom}
+              >
+                <i className="mdi mdi-magnify-plus" />
+              </Button>
+              <Button
+                className="gw-flex-1 bg-secondary px-4 py-2 last:rounded-r-md st-btn-tb"
+                onClick={doSurveyStreetView}
+              >
+                <i className="mdi mdi-google-street-view" />
+              </Button>
+            </div>
+          </div>
+          <div className="card border-secondary mb-3 st-card">
+            <div className="card-header st-card-header">Categories</div>
+            <div className="card-body st-card-body">
+              <div className="form-group">
+                <div style={{ display: "flex" }}>
+                  <label style={{ flexGrow: 1 }}>Damage Category</label>
+                  <a
+                    target="_blank"
+                    title="Help for Damage Category"
+                    href={`${fwLinkHost}nsi-survey-tool-damage-categories`}
+                  >
+                    <i className="mdi mdi-help-circle-outline" />
+                  </a>
+                </div>
+                <select
+                  className="form-control st-input"
+                  id="damcat"
+                  onChange={handleChange("damcat")}
+                >
+                  {damcats.map((cat) =>
+                    cat.val === surveyElement.damcat ? (
+                      <option value={cat.val} selected>
+                        {cat.display}
+                      </option>
+                    ) : (
+                      <option value={cat.val}>{cat.display}</option>
+                    ),
+                  )}
+                </select>
+              </div>
+              <div className="form-group">
+                <div style={{ display: "flex" }}>
+                  <label style={{ flexGrow: 1 }}>Occupancy Type</label>
+                  <a
+                    target="_blank"
+                    title="Help for Occupancy Type"
+                    href={`${fwLinkHost}nsi-survey-tool-occupancy-types`}
+                  >
+                    <i className="mdi mdi-help-circle-outline" />
+                  </a>
+                </div>
+                <select
+                  className="form-control st-input"
+                  id="occclass"
+                  onChange={handleChange("occupancyType")}
+                >
+                  {occs.Unknown.map((cat) =>
+                    cat === surveyElement.occupancyType ? (
+                      <option selected>{cat}</option>
+                    ) : (
+                      <option>{cat}</option>
+                    ),
+                  )}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div className="card border-secondary mb-3 st-card">
+            <div className="card-header st-card-header">Foundation</div>
+            <div className="card-body st-card-body">
+              <div className="form-group">
+                <div style={{ display: "flex" }}>
+                  <label style={{ flexGrow: 1 }}>Foundation Type</label>
+                  <a
+                    target="_blank"
+                    title="Help for Foundation Type"
+                    href={`${fwLinkHost}nsi-survey-tool-foundation-type`}
+                  >
+                    <i className="mdi mdi-help-circle-outline" />
+                  </a>
+                </div>
+                <select
+                  className="form-control st-input"
+                  id="foundtypes"
+                  onChange={handleChange("found_type")}
+                >
+                  {foundTypes.map((cat) =>
+                    cat.val === surveyElement.found_type ? (
+                      <option value={cat.val} selected>
+                        {cat.display}
+                      </option>
+                    ) : (
+                      <option value={cat.val}>{cat.display}</option>
+                    ),
+                  )}
+                </select>
+              </div>
+              <div className="form-group">
+                <div style={{ display: "flex" }}>
+                  <label style={{ flexGrow: 1 }}>Foundation Height(ft)</label>
+                  <a
+                    target="_blank"
+                    title="Help for Foundation Height"
+                    href={`${fwLinkHost}nsi-survey-tool-foundation-height`}
+                  >
+                    <i className="mdi mdi-help-circle-outline" />
+                  </a>
+                </div>
+                <input
+                  type="text"
+                  value={surveyElement.found_ht}
+                  className="form-control st-input"
+                  id="foundheight"
+                  placeholder=""
+                  onChange={handleChange("found_ht")}
+                  onBlur={numberValidation("found_ht", "foundHtInvalid", "dbl")}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="card border-secondary mb-3 st-card">
+            <div className="card-header st-card-header">Attributes</div>
+            <div className="card-body st-card-body">
+              <div style={{ display: "flex" }}>
+                <label style={{ flexGrow: 1 }}>Replacement Type</label>
+                <a
+                  target="_blank"
+                  title="Help for Replacement Type"
+                  href={`${fwLinkHost}nsi-survey-tool-replacement-type`}
+                >
+                  <i className="mdi mdi-help-circle-outline" />
+                </a>
+              </div>
+              <select
+                className="form-control st-input"
+                id="occclass"
+                onChange={handleChange("replacement_type")}
+              >
+                {rsMeansTypes.Unknown.map((cat) =>
+                  cat === surveyElement.replacement_type ? (
+                    <option selected>{cat}</option>
+                  ) : (
+                    <option>{cat}</option>
+                  ),
+                )}
+              </select>
+
+              <div style={{ display: "flex" }}>
+                <label style={{ flexGrow: 1 }}>Quality</label>
+                <a
+                  target="_blank"
+                  title="Help for Quality"
+                  href={`${fwLinkHost}nsi-survey-tool-replacement-quality`}
+                >
+                  <i className="mdi mdi-help-circle-outline" />
+                </a>
+              </div>
+              <select
+                className="form-control st-input"
+                id="occclass"
+                onChange={handleChange("quality")}
+              >
+                {qualities.map((cat) =>
+                  cat === surveyElement.quality ? (
+                    <option selected>{cat}</option>
+                  ) : (
+                    <option>{cat}</option>
+                  ),
+                )}
+              </select>
+
+              <div style={{ display: "flex" }}>
+                <label style={{ flexGrow: 1 }}>
+                  Exterior Construction Type
+                </label>
+                <a
+                  target="_blank"
+                  title="Help for Exterior Construction Types"
+                  href={`${fwLinkHost}nsi-survey-tool-exterior-construction`}
+                >
+                  <i className="mdi mdi-help-circle-outline" />
+                </a>
+              </div>
+              <select
+                className="form-control st-input"
+                id="occclass"
+                onChange={handleChange("const_type")}
+              >
+                {constTypes.map((cat) =>
+                  cat === surveyElement.const_type ? (
+                    <option selected>{cat}</option>
+                  ) : (
+                    <option>{cat}</option>
+                  ),
+                )}
+              </select>
+
+              <div style={{ display: "flex" }}>
+                <label style={{ flexGrow: 1 }}>Garage Type</label>
+                <a
+                  target="_blank"
+                  title="Help for Garage Types"
+                  href={`${fwLinkHost}nsi-survey-tool-garage`}
+                >
+                  <i className="mdi mdi-help-circle-outline" />
+                </a>
+              </div>
+              <select
+                className="form-control st-input"
+                id="occclass"
+                onChange={handleChange("garage")}
+              >
+                {garageTypes.map((cat) =>
+                  cat === surveyElement.garage ? (
+                    <option selected>{cat}</option>
+                  ) : (
+                    <option>{cat}</option>
+                  ),
+                )}
+              </select>
+
+              <div style={{ display: "flex" }}>
+                <label style={{ flexGrow: 1 }}>Roof Style</label>
+                <a
+                  target="_blank"
+                  title="Help for Roof Styles"
+                  href={`${fwLinkHost}nsi-survey-tool-roof-style`}
+                >
+                  <i className="mdi mdi-help-circle-outline" />
+                </a>
+              </div>
+              <select
+                className="form-control st-input"
+                id="occclass"
+                onChange={handleChange("roof_style")}
+              >
+                {roofStyles.map((cat) =>
+                  cat === surveyElement.roof_style ? (
+                    <option selected>{cat}</option>
+                  ) : (
+                    <option>{cat}</option>
+                  ),
+                )}
+              </select>
+
+              <div style={{ display: "flex" }}>
+                <label style={{ flexGrow: 1 }}>Number of Stories</label>
+                <a
+                  target="_blank"
+                  title="Help for Number of Stories"
+                  href={`${fwLinkHost}nsi-survey-tool-stories`}
+                >
+                  <i className="mdi mdi-help-circle-outline" />
+                </a>
+              </div>
+              <input
+                type="text"
+                value={surveyElement.stories}
+                className="form-control st-input"
+                placeholder=""
+                onChange={handleChange("stories")}
+                onBlur={numberValidation("stories", "storiesInvalid", "dbl")}
+              />
+
+              <div style={{ display: "flex" }}>
+                <label style={{ flexGrow: 1 }}>
+                  Occupied Footprint SQ Feet
+                </label>
+                <a
+                  target="_blank"
+                  title="Help for Occupied SQ Feet"
+                  href={`${fwLinkHost}nsi-survey-tool-square-footage`}
+                >
+                  <i className="mdi mdi-help-circle-outline" />
+                </a>
+              </div>
+              <div
+                className="draw-input-wrapper"
                 style={{
-                  position: "absolute",
-                  right: "-5px", // Matches the slight offset in your image
-                  bottom: "5px", // Overlaps the bottom border line
-                  width: "40px",
-                  height: "80%",
+                  position: "relative",
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "center",
-                  backgroundColor: "transparent",
-                  border: "none",
-                  boxShadow: "none",
-                  cursor: "pointer",
-                  zIndex: 10,
                 }}
-                onClick={doSurveyDrawSqft}
               >
-                <EditIcon style={{ fontSize: "14px" }} />
-              </button>
+                <input
+                  type="text"
+                  value={surveyElement.sq_ft}
+                  className="form-control st-input"
+                  placeholder=""
+                  onChange={handleChange("sq_ft")}
+                  onBlur={numberValidation("sq_ft", "sqFtInvalid", "dbl")}
+                />
+                <div className="input-group-append">
+                  <button
+                    className="draw-overlay-btn"
+                    type="button"
+                    title="Draw area on map"
+                    style={{
+                      position: "absolute",
+                      right: "-5px", // Matches the slight offset in your image
+                      bottom: "5px", // Overlaps the bottom border line
+                      width: "40px",
+                      height: "80%",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      backgroundColor: "transparent",
+                      border: "none",
+                      boxShadow: "none",
+                      cursor: "pointer",
+                      zIndex: 10,
+                    }}
+                    onClick={doSurveyDrawSqft}
+                  >
+                    <EditIcon style={{ fontSize: "14px" }} />
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
+        </fieldset>
       </div>
-      </fieldset>
+      {/* Bottom bar: SUBMIT spanning full width, fixed at bottom of tray */}
+      <div style={{ padding: "5px", flexShrink: 0 }}>
+        <Button
+          title="Submit Survey Element"
+          disabled={surveyElement.survey_element_invalid}
+          className="btn btn-secondary basic-toolbar-btn st-btn-tb1"
+          onClick={doSurveySubmit}
+          style={{ width: "100%", padding: "2px" }}
+        >
+          <i>SUBMIT</i>
+        </Button>
+      </div>
     </div>
   );
 }
