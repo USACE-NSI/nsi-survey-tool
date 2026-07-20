@@ -120,7 +120,11 @@ export default function ViewCompletedSurveys() {
                     <Tooltip title="View Detailed Statistics">
                       <Button
                         disabled={
-                          !(item.owners?.includes(authUsername) || isAdmin)
+                          !(
+                            item.members?.includes(authUsername) ||
+                            item.owners?.includes(authUsername) ||
+                            isAdmin
+                          )
                         }
                         className={`gw-p-2 gw-rounded-md ${
                           item.owners?.includes(authUsername) || isAdmin
