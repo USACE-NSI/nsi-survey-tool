@@ -254,9 +254,8 @@ function SurveyTray() {
               !surveyElement.saId ||
               surveyElement.atFirst
             }
-            className="btn btn-secondary basic-toolbar-btn st-btn-tb1"
+            className="btn btn-secondary basic-toolbar-btn st-btn-full"
             onClick={doSurveyFetchPrevious}
-            style={{ width: "100%" }}
           >
             <i>PREVIOUS</i>
           </Button>
@@ -282,9 +281,8 @@ function SurveyTray() {
               surveyElement.awaitingSubmit ||
               surveyElement.allCompleted
             }
-            className="btn btn-secondary basic-toolbar-btn st-btn-tb1"
+            className="btn btn-secondary basic-toolbar-btn st-btn-full"
             onClick={doSurveyFetchNext}
-            style={{ width: "100%" }}
           >
             <i>
               {surveyElement.isLoading || surveyElement.fetchingAssignment

@@ -73,6 +73,19 @@
   border-width: 1px !important;
   border-collapse: collapse !important;
 }
+.st-btn-full {
+    border-radius: 5px !important;
+    padding: 2px !important;
+    margin: 0px !important;
+    font-size: medium !important;
+    color: #fff !important;
+    width: 100% !important; /* This overrides the 33% from .st-btn-tb1 */
+    background-color: #4d5661 !important;
+    border-color: #7f8084 !important;
+    border-style: solid !important;
+    border-width: 1px !important;
+    border-collapse: collapse !important;
+}
 .st-btn-tb-delete{
   border-radius: 5px !important;
   padding: 2px !important;
