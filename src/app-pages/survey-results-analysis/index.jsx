@@ -17,17 +17,13 @@ export default function SurveyResultsAnalysis() {
   const [trayWidth, setTrayWidth] = useState(350);
   const [isResizing, setIsResizing] = useState(false);
 
-  const {
-    survey,
-    surveyResults,
-    doUpdateSurveyResults,
-    doFetchSurveyResults,
-  } = useConnect(
-    "selectSurvey",
-    "selectSurveyResults",
-    "doUpdateSurveyResults",
-    "doFetchSurveyResults"
-  );
+  const { survey, surveyResults, doUpdateSurveyResults, doFetchSurveyResults } =
+    useConnect(
+      "selectSurvey",
+      "selectSurveyResults",
+      "doUpdateSurveyResults",
+      "doFetchSurveyResults",
+    );
   const fieldFilter = [
     { field: "All Fields", fieldType: "mixed", display: "All Fields" },
     { field: "completed", fieldType: "catagorical", display: "Completed" },
@@ -127,7 +123,10 @@ export default function SurveyResultsAnalysis() {
   }, [isResizing]);
 
   return (
-    <div className="gw-flex gw-h-screen gw-bg-slate-50">
+    <div
+      style={{ display: "flex", height: "100vh", overflow: "hidden" }}
+      className="gw-bg-slate-50"
+    >
       {/* 1. Left Filter & Controls Tray */}
       <div
         style={{ width: `${trayWidth}px` }}
@@ -180,7 +179,7 @@ export default function SurveyResultsAnalysis() {
                 <button
                   onClick={() => updateViewState("cdf")}
                   className={`gw-flex-1 gw-py-2 gw-flex gw-justify-center ${
-                    surveyResults.viewBox
+                    surveyResults.viewCDF
                       ? "gw-bg-gray-600 gw-text-white"
                       : "gw-bg-white gw-text-gray-600 hover:gw-bg-slate-50"
                   }`}
@@ -250,7 +249,7 @@ export default function SurveyResultsAnalysis() {
                 const selectedFieldKey = e.target.value;
                 // Find the full object from your fieldFilter array
                 const selectedObject = fieldFilter.find(
-                  (f) => f.field === selectedFieldKey
+                  (f) => f.field === selectedFieldKey,
                 );
 
                 doUpdateSurveyResults({
@@ -278,7 +277,7 @@ export default function SurveyResultsAnalysis() {
       </div>
 
       {/* 2. Main Stage */}
-      <div className="gw-flex-1 gw-overflow-auto gw-p-8">
+      <div className="gw-flex-1 gw-flex gw-flex-col gw-p-8">
         {(!survey.results || survey.results.length === 0) && (
           <div className="gw-border-2 gw-border-dashed gw-border-slate-300 gw-rounded-lg gw-p-8 gw-text-center gw-mb-4">
             <p className="gw-text-sm gw-text-slate-600">
@@ -292,7 +291,10 @@ export default function SurveyResultsAnalysis() {
         )}
 
         {/* Analysis Content */}
-        <div className="gw-bg-white gw-rounded-xl gw-shadow-sm gw-border gw-border-slate-200 gw-min-h-full">
+        <div
+          style={{ flex: 1, overflow: "hidden" }}
+          className="gw-bg-white gw-rounded-xl gw-shadow-sm gw-border gw-border-slate-200"
+        >
           {surveyResults.viewTable && <ViewResultsTable />}
           {surveyResults.viewPie && <ViewResultsPie />}
           {surveyResults.viewBar && <ViewResultsBar />}

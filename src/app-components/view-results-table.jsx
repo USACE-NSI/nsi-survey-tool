@@ -86,7 +86,10 @@ export default function ViewResultsTable() {
     });
   };
   return (
-    <div className="gw-p-4">
+    <div
+      style={{ display: "flex", flexDirection: "column", height: "100%" }}
+      className="gw-p-4"
+    >
       {/* 
           Note: Use overflow-auto and a max-height to handle 20+ columns 
           and long lists of results effectively. 
@@ -107,7 +110,10 @@ export default function ViewResultsTable() {
           </button>
         </Tooltip>
       </div>
-      <div className="gw-overflow-x-auto gw-overflow-y-auto gw-max-h-[70vh] gw-shadow-md gw-rounded-lg gw-border">
+      <div
+        style={{ flex: 1, overflow: "auto" }}
+        className="gw-w-full gw-shadow-md gw-rounded-lg gw-border"
+      >
         <table className="gw-min-w-max gw-divide-y gw-divide-gray-200">
           <thead className="gw-bg-gray-50 gw-sticky gw-top-0">
             <tr>
