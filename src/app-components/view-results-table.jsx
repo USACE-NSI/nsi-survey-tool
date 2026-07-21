@@ -107,8 +107,8 @@ export default function ViewResultsTable() {
           </button>
         </Tooltip>
       </div>
-      <div className="gw-overflow-auto gw-max-h-[70vh] gw-shadow-md gw-rounded-lg gw-border">
-        <table className="gw-min-w-full gw-divide-y gw-divide-gray-200">
+      <div className="gw-overflow-x-auto gw-overflow-y-auto gw-max-h-[70vh] gw-shadow-md gw-rounded-lg gw-border">
+        <table className="gw-min-w-max gw-divide-y gw-divide-gray-200">
           <thead className="gw-bg-gray-50 gw-sticky gw-top-0">
             <tr>
               {visibleColumns.map((col) => (
